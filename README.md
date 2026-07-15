@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rectoverso Activation Partner Management System
+
+Sistem manajemen aktivasi untuk kampanye Rectoverso dengan fitur lengkap untuk partner aktivasi, PIC, dan Campaign Manager.
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript (Strict Mode)
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Icons**: Phosphor Icons (Colorful)
+- **Database**: Supabase PostgreSQL
+- **Auth**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Validation**: Zod + React Hook Form
+- **Tables**: TanStack Table
+- **Charts**: Recharts
+- **Deployment**: Vercel
+
+## Campaigns
+
+Multi-brand campaign platform supporting:
+- **FIFGO Reputation Improvement Campaign** (Initial)
+- Configurable for future campaigns
+
+### FIFGO Campaign Details
+- Fee: IDR 5,000 per valid activation
+- Payment: Weekly
+- QC Required: Yes
+- Evidence Required: Yes
+
+## Features
+
+- 🔐 Role-Based Access Control (Super Admin, Campaign Manager, PIC, Partner)
+- 📱 Mobile-First Submission Form
+- 🔍 Automated Fraud & Duplicate Detection
+- ✅ Quality Control Workflow
+- 💰 Weekly Payment Management
+- 📊 Real-time Dashboards
+- 🔔 Notification System
+- 📝 Complete Audit Trail
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Setup environment variables
+cp .env.example .env.local
+
+# Run database migrations
+npx supabase db push
+
+# Seed database
+npx supabase db seed
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Demo Accounts
 
-## Learn More
+| Role | Email | Password |
+|------|-------|----------|
+| Super Admin | admin@rectoverso.id | Password123! |
+| Campaign Manager | manager@rectoverso.id | Password123! |
+| PIC 1 | pic1@rectoverso.id | Password123! |
+| PIC 2 | pic2@rectoverso.id | Password123! |
+| Partner 1-20 | partner1@rectoverso.id - partner20@rectoverso.id | Password123! |
 
-To learn more about Next.js, take a look at the following resources:
+## User Roles
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Super Admin
+Full system access, manage all organizations and campaigns
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Campaign Manager
+Manage campaigns, review all submissions, create payment batches
 
-## Deploy on Vercel
+### PIC (Partner In Charge)
+Review assigned partners' submissions, conduct QC
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Activation Partner
+Submit activations, view own submissions and earnings
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Security Features
+
+- Row Level Security (RLS) on all sensitive tables
+- Server-side permission validation
+- Zod input validation
+- Encrypted sensitive data (bank accounts, national ID)
+- Complete audit logging
+- No direct database access for partners
+
+## License
+
+Proprietary - Rectoverso Media
