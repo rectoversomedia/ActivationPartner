@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   House,
@@ -45,13 +46,11 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-100">
           <Link href="/partner/dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 flex-shrink-0">
-              <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-              </svg>
+              <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={28} height={28} className="object-contain brightness-0 invert" />
             </div>
             {!sidebarCollapsed && (
               <div>
-                <h1 className="text-lg font-bold text-gradient">Rectoverso</h1>
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={120} height={30} className="object-contain" />
                 <p className="text-[10px] text-slate-500 -mt-1">Activation System</p>
               </div>
             )}
@@ -106,9 +105,9 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 -ml-2 rounded-lg hover:bg-slate-100"><List size={24} className="text-slate-600" /></button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+              <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={20} height={20} className="object-contain brightness-0 invert" />
             </div>
-            <span className="font-bold text-slate-900">Rectoverso</span>
+            <span className="font-bold text-slate-900">RECTOVERSO</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -124,8 +123,10 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
           <div className="fixed left-0 top-0 bottom-0 w-72 bg-white animate-slide-in-left">
             <div className="flex items-center justify-between h-16 px-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center"><svg viewBox="0 0 24 24" fill="white" className="w-6 h-6"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></div>
-                <div><h1 className="text-lg font-bold text-gradient">Rectoverso</h1><p className="text-[10px] text-slate-500">Activation System</p></div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                  <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={24} height={24} className="object-contain brightness-0 invert" />
+                </div>
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={100} height={25} className="object-contain" />
               </div>
               <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-slate-100"><CaretLeft size={20} className="text-slate-400" /></button>
             </div>

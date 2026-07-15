@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@1,700&display=swap');
+      .logo-text {
+        font-family: 'Poppins', 'Arial Black', sans-serif;
+        font-weight: 700;
+        font-style: italic;
+        fill: #2563EB;
+      }
+    </style>
+  </defs>
+  <text x="10" y="38" class="logo-text" font-size="36">rectoverso.</text>
+</svg>

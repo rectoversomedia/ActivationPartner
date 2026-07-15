@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   House,
   UsersThree,
@@ -51,10 +52,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
           <Link href="/admin/dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-              <ShieldCheck size={24} weight="fill" className="text-white" />
+              <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={28} height={28} className="object-contain brightness-0 invert" />
             </div>
             {!sidebarCollapsed && (
-              <div><h1 className="text-lg font-bold">Rectoverso</h1><p className="text-[10px] text-slate-400 -mt-1">Admin Panel</p></div>
+              <div>
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={130} height={32} className="object-contain brightness-0" />
+                <p className="text-[10px] text-slate-400 -mt-1">Admin Panel</p>
+              </div>
             )}
           </Link>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-2 rounded-lg hover:bg-white/10">
@@ -103,9 +107,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 -ml-2 rounded-lg hover:bg-white/10"><List size={24} className="text-white" /></button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-              <ShieldCheck size={20} weight="fill" className="text-white" />
+              <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={20} height={20} className="object-contain brightness-0 invert" />
             </div>
-            <span className="font-bold text-white">Rectoverso</span>
+            <span className="font-bold text-white">RECTOVERSO</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -121,8 +125,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="fixed left-0 top-0 bottom-0 w-72 bg-slate-900 text-white animate-slide-in-left">
             <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center"><ShieldCheck size={24} weight="fill" className="text-white" /></div>
-                <div><h1 className="text-lg font-bold">Rectoverso</h1><p className="text-[10px] text-slate-400">Admin Panel</p></div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                  <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={24} height={24} className="object-contain brightness-0 invert" />
+                </div>
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={110} height={28} className="object-contain brightness-0" />
               </div>
               <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-white/10"><CaretLeft size={20} className="text-slate-400" /></button>
             </div>

@@ -3,7 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeSlash, ShieldCheck, Envelope, Lock, Sparkle, Lightning, Users, ChartLineUp } from '@phosphor-icons/react';
+import Image from 'next/image';
+import { Eye, EyeSlash, Envelope, Lock, Lightning, Users } from '@phosphor-icons/react';
 import { Button, Input, Label, Card, CardContent } from '@/components/ui';
 
 export default function LoginPage() {
@@ -61,10 +62,10 @@ export default function LoginPage() {
           <div className="mb-8 animate-fade-in">
             <div className="flex items-center gap-4 mb-6">
               <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-2xl">
-                <ShieldCheck size={48} weight="fill" />
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={80} height={40} className="object-contain brightness-0 invert" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold">Rectoverso</h1>
+                <h1 className="text-4xl font-bold">RECTOVERSO</h1>
                 <p className="text-white/70">Activation System</p>
               </div>
             </div>
@@ -108,9 +109,9 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8 text-center animate-fade-in">
             <div className="inline-flex items-center gap-3 p-4 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-xl mb-4">
-              <ShieldCheck size={32} weight="fill" className="text-white" />
+              <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={80} height={40} className="object-contain brightness-0 invert" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Rectoverso</h1>
+            <h1 className="text-2xl font-bold text-slate-900">RECTOVERSO</h1>
             <p className="text-slate-500">Activation System</p>
           </div>
 
@@ -118,7 +119,8 @@ export default function LoginPage() {
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
 
             <CardContent className="p-8">
-              <div className="mb-8">
+              <div className="mb-8 text-center">
+                <Image src="/images/logo-rectoverso.svg" alt="Rectoverso" width={160} height={60} className="object-contain mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">Masuk</h2>
                 <p className="text-slate-500">Masukkan kredensial Anda untuk melanjutkan</p>
               </div>
