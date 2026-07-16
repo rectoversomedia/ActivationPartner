@@ -208,19 +208,19 @@ export default function SubmitPage() {
     setIsSubmitting(true);
 
     try {
-      // Get selected names for the API
-      const selectedSales = masterData.sales.find(s => s.id === formData.sales_id)?.name || '';
-      const selectedPic = masterData.pics.find(p => p.id === formData.pic_id)?.name || '';
-      const selectedCampaign = masterData.campaigns.find(c => c.id === formData.campaign_id)?.name || '';
+      // Get selected names
+      const selectedSalesName = salesList.find(s => s.id === formData.sales_id)?.name || '';
+      const selectedPicName = picsList.find(p => p.id === formData.pic_id)?.name || '';
+      const selectedCampaignName = campaigns.find(c => c.id === formData.campaign_id)?.name || '';
 
       // Create FormData for file upload
       const formDataToSend = new FormData();
       formDataToSend.append('sales_id', formData.sales_id);
-      formDataToSend.append('sales_name', selectedSales);
+      formDataToSend.append('sales_name', selectedSalesName);
       formDataToSend.append('pic_id', formData.pic_id);
-      formDataToSend.append('pic_name', selectedPic);
+      formDataToSend.append('pic_name', selectedPicName);
       formDataToSend.append('campaign_id', formData.campaign_id);
-      formDataToSend.append('campaign_name', selectedCampaign);
+      formDataToSend.append('campaign_name', selectedCampaignName);
       formDataToSend.append('customer_name', formData.customer_name);
       formDataToSend.append('customer_email', formData.customer_email);
       formDataToSend.append('customer_phone', formData.customer_phone);

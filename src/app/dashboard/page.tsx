@@ -11,125 +11,7 @@ import {
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-// Mock data with fraud detection
-const mockSubmissions = [
-  {
-    id: 'ACT-ABC12345',
-    sales: 'Ahmad Fauzi',
-    pic: 'Budi Santoso',
-    campaign: 'FIFGO Campaign',
-    date: '2026-07-16',
-    time: '10:30',
-    status: 'valid',
-    screenshots: 3,
-    customer: { name: 'Dewi Lestari', phone: '081234567890', email: 'dewi@email.com' },
-    device_fingerprint: 'android-samsung-a54',
-    location: { lat: -6.2088, lng: 106.8456, city: 'Jakarta' },
-    fraud_flags: [],
-    qc_notes: 'Valid submission'
-  },
-  {
-    id: 'ACT-DEF67890',
-    sales: 'Budi Santoso',
-    pic: 'Ani Wijaya',
-    campaign: 'FIFGO Campaign',
-    date: '2026-07-16',
-    time: '11:45',
-    status: 'pending',
-    screenshots: 3,
-    customer: { name: 'Eko Prasetyo', phone: '081234567891', email: 'eko@email.com' },
-    device_fingerprint: 'android-samsung-a54',
-    location: { lat: -6.2088, lng: 106.8456, city: 'Jakarta' },
-    fraud_flags: ['SAME_DEVICE_DIFFERENT_CUSTOMER'],
-    qc_notes: 'Pending review - same device as submission ACT-ABC12345'
-  },
-  {
-    id: 'ACT-GHI11223',
-    sales: 'Citra Dewi',
-    pic: 'Budi Santoso',
-    campaign: 'FIFGO Campaign',
-    date: '2026-07-15',
-    time: '09:15',
-    status: 'invalid',
-    screenshots: 2,
-    customer: { name: 'Fajar Nugroho', phone: '081234567892', email: 'fajar@email.com' },
-    device_fingerprint: 'ios-iphone14',
-    location: { lat: -6.9175, lng: 107.6191, city: 'Bandung' },
-    fraud_flags: ['SCREENSHOT_MISSING', 'INSUFFICIENT_EVIDENCE'],
-    qc_notes: 'Missing rating screenshot'
-  },
-  {
-    id: 'ACT-JKL44556',
-    sales: 'Ahmad Fauzi',
-    pic: 'Ani Wijaya',
-    campaign: 'Rectoverso Promo',
-    date: '2026-07-15',
-    time: '14:20',
-    status: 'valid',
-    screenshots: 3,
-    customer: { name: 'Gita Kumala', phone: '081234567893', email: 'gita@email.com' },
-    device_fingerprint: 'android-xiaomi-redmi',
-    location: { lat: -6.2088, lng: 106.8456, city: 'Jakarta' },
-    fraud_flags: [],
-    qc_notes: 'Valid submission'
-  },
-  {
-    id: 'ACT-MNO77889',
-    sales: 'Eko Wijaya',
-    pic: 'Dewi Lestari',
-    campaign: 'FIFGO Campaign',
-    date: '2026-07-14',
-    time: '16:00',
-    status: 'fraud',
-    screenshots: 3,
-    customer: { name: 'Hendra Gunawan', phone: '081234567894', email: 'hendra@email.com' },
-    device_fingerprint: 'android-samsung-a54',
-    location: { lat: -7.7956, lng: 110.3695, city: 'Yogyakarta' },
-    fraud_flags: ['SAME_DEVICE_DIFFERENT_CUSTOMER', 'SAME_PHONE_PREFIX', 'GPS_SUSPICIOUS'],
-    qc_notes: 'FLAGGED: Device used for 3 different customers in different cities. Phone prefix pattern suspicious.'
-  },
-  {
-    id: 'ACT-PQR00112',
-    sales: 'Fani Astuti',
-    pic: 'Budi Santoso',
-    campaign: 'FIFGO Campaign',
-    date: '2026-07-14',
-    time: '10:00',
-    status: 'valid',
-    screenshots: 3,
-    customer: { name: 'Indah Permata', phone: '081234567895', email: 'indah@email.com' },
-    device_fingerprint: 'ios-iphone13',
-    location: { lat: -6.9175, lng: 107.6191, city: 'Bandung' },
-    fraud_flags: [],
-    qc_notes: 'Valid submission'
-  },
-  {
-    id: 'ACT-STU33445',
-    sales: 'Gunawan',
-    pic: 'Ani Wijaya',
-    campaign: 'Rectoverso Promo',
-    date: '2026-07-13',
-    time: '13:30',
-    status: 'invalid',
-    screenshots: 1,
-    customer: { name: 'Joko Widodo', phone: '081234567896', email: 'joko@email.com' },
-    device_fingerprint: 'android-oppo-reno',
-    location: { lat: -7.1500, lng: 112.6500, city: 'Surabaya' },
-    fraud_flags: ['SCREENSHOT_MISSING', 'RATING_NOT_5_STARS', 'DUPLICATE_LOCATION'],
-    qc_notes: 'Rating only 3 stars, duplicate location pattern detected'
-  },
-];
-
-// Stats per sales
-const salesStats = [
-  { name: 'Ahmad Fauzi', total: 25, valid: 23, invalid: 1, fraud: 1, pending: 0, rate: 92 },
-  { name: 'Budi Santoso', total: 18, valid: 15, invalid: 2, fraud: 1, pending: 0, rate: 83 },
-  { name: 'Citra Dewi', total: 22, valid: 18, invalid: 3, fraud: 0, pending: 1, rate: 82 },
-  { name: 'Dian Pratama', total: 30, valid: 28, invalid: 1, fraud: 1, pending: 0, rate: 93 },
-  { name: 'Eko Wijaya', total: 15, valid: 10, invalid: 3, fraud: 2, pending: 0, rate: 67 },
-  { name: 'Fani Astuti', total: 20, valid: 19, invalid: 1, fraud: 0, pending: 0, rate: 95 },
-  { name: 'Gunawan', total: 12, valid: 8, invalid: 3, fraud: 1, pending: 0, rate: 67 },
-];
+// Real data with fraud detection
 
 type StatusFilter = 'all' | 'valid' | 'pending' | 'invalid' | 'fraud';
 
@@ -172,30 +54,54 @@ export default function DashboardPage() {
   const [view, setView] = React.useState<'submissions' | 'sales'>('submissions');
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
+  const [salesStats, setSalesStats] = React.useState<{name: string; total: number; valid: number; invalid: number; fraud: number; pending: number; rate: number}[]>([]);
 
   // Fetch from API
   React.useEffect(() => {
-    const fetchSubmissions = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-
-        const response = await fetch(`/api/submissions?${params}`);
+        // Fetch all submissions (no pagination for stats)
+        const response = await fetch('/api/submissions?limit=1000');
         const result = await response.json();
 
         if (result.data) {
           setSubmissions(result.data);
+
+          // Calculate real sales stats from API data
+          const salesMap = new Map<string, {total: number; valid: number; invalid: number; fraud: number; pending: number}>();
+          result.data.forEach((sub: Submission) => {
+            const salesName = sub.sales_name || 'Unknown';
+            const current = salesMap.get(salesName) || {total: 0, valid: 0, invalid: 0, fraud: 0, pending: 0};
+            current.total++;
+            if (sub.status === 'valid') current.valid++;
+            else if (sub.status === 'invalid') current.invalid++;
+            else if (sub.status === 'fraud') current.fraud++;
+            else if (sub.status === 'pending') current.pending++;
+            salesMap.set(salesName, current);
+          });
+
+          // Convert to array with rate calculation
+          const stats = Array.from(salesMap.entries()).map(([name, data]) => ({
+            name,
+            total: data.total,
+            valid: data.valid,
+            invalid: data.invalid,
+            fraud: data.fraud,
+            pending: data.pending,
+            rate: data.total > 0 ? Math.round((data.valid / data.total) * 100) : 0
+          })).sort((a, b) => b.total - a.total);
+
+          setSalesStats(stats);
         }
       } catch (error) {
         console.error('Failed to fetch submissions:', error);
-        setSubmissions(mockSubmissions as any);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchSubmissions();
+    fetchData();
   }, [statusFilter]);
 
   const filteredSubmissions = submissions.filter(
@@ -257,9 +163,9 @@ export default function DashboardPage() {
                 <Plus size={18} className="mr-2" /> New Submission
               </Button>
             </Link>
-            <Link href="/admin">
+            <Link href="/superadmin">
               <Button variant="outline">
-                <Shield size={18} className="mr-2" /> Admin
+                <Shield size={18} className="mr-2" /> Super Admin
               </Button>
             </Link>
           </div>
