@@ -78,26 +78,26 @@ export default function SubmitPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header with Logo */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-md mx-auto px-4 py-6">
+      <header className="bg-white">
+        <div className="max-w-md mx-auto px-4 pt-8 pb-4">
           {/* Logo */}
-          <div className="flex flex-col items-center mb-2">
-            <div className="w-16 h-16 mb-3">
+          <div className="flex flex-col items-center">
+            <div className="w-[200px] h-auto">
               <Image
                 src="/Logo Rectoverso.png"
                 alt="RECTOVERSO"
-                width={64}
-                height={64}
-                className="w-full h-full object-contain"
+                width={200}
+                height={80}
+                className="w-full h-auto object-contain"
+                priority
               />
             </div>
-            <p className="text-sm text-slate-500 font-medium">Activation System</p>
           </div>
         </div>
       </header>
 
       {/* Report Sales Title */}
-      <div className="max-w-md mx-auto px-4 py-6">
+      <div className="max-w-md mx-auto px-4 pb-6">
         <h2 className="text-2xl font-bold text-slate-900 text-center">
           Report Sales
         </h2>
