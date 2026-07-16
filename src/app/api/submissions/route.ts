@@ -7,6 +7,7 @@ const SEVERITY_SCORES: Record<string, number> = {
   medium: 15,
   high: 25,
   critical: 40,
+  error: 20,
 };
 
 // Decision thresholds
@@ -87,7 +88,7 @@ async function detectFraudV2(
     typing_speeds?: number[];
   },
   fraudRules: any
-): Promise<{ flags: FraudFlag[]; score: number; decision: string; riskLevel: string }> {
+): Promise<{ flags: any[]; score: number; decision: string; riskLevel: string }> {
   const flags: FraudFlag[] = [];
 
   // ============================================
@@ -97,7 +98,7 @@ async function detectFraudV2(
     flags.push({
       flag: "EVIDENCE_MISSING",
       reason: "Screenshot Download wajib diupload",
-      severity: "error" as const,
+      severity: "high" as const,
       category: "evidence",
       score: 20,
     });
@@ -106,7 +107,7 @@ async function detectFraudV2(
     flags.push({
       flag: "EVIDENCE_MISSING",
       reason: "Screenshot Registrasi wajib diupload",
-      severity: "error" as const,
+      severity: "high" as const,
       category: "evidence",
       score: 20,
     });
@@ -115,7 +116,7 @@ async function detectFraudV2(
     flags.push({
       flag: "EVIDENCE_MISSING",
       reason: "Screenshot Rating wajib diupload",
-      severity: "error" as const,
+      severity: "high" as const,
       category: "evidence",
       score: 20,
     });
@@ -128,7 +129,7 @@ async function detectFraudV2(
     flags.push({
       flag: "NO_GPS_DATA",
       reason: "Data GPS wajib ada",
-      severity: "error" as const,
+      severity: "high" as const,
       category: "location",
       score: 15,
     });
@@ -333,7 +334,7 @@ async function detectFraudV2(
         flags.push({
           flag: "IP_RATE_EXCEEDED",
           reason: `${ipCount + 1} submission dari IP ini dalam 1 jam (maks: ${fraudRules.max_submissions_per_ip_per_hour})`,
-          severity: "error" as const,
+          severity: "high" as const,
           category: "velocity",
           score: 20,
         });
@@ -361,7 +362,7 @@ async function detectFraudV2(
         flags.push({
           flag: "DEVICE_RATE_EXCEEDED",
           reason: `${deviceCount + 1} submission dari device ini dalam 24 jam (maks: ${fraudRules.max_submissions_per_device_per_day})`,
-          severity: "error" as const,
+          severity: "high" as const,
           category: "velocity",
           score: 25,
         });
@@ -419,7 +420,7 @@ async function detectFraudV2(
         flags.push({
           flag: "LOCATION_RATE_EXCEEDED",
           reason: `${locCount + 1} submission di lokasi yang sama dalam 24 jam (maks: ${fraudRules.max_same_location_per_day})`,
-          severity: "error" as const,
+          severity: "high" as const,
           category: "velocity",
           score: 20,
         });
