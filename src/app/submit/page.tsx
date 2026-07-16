@@ -3,8 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Calendar, User, MapPin, DeviceMobile, Check, CloudArrowUp, Camera, Download, Star, Smartphone, Plus } from '@phosphor-icons/react';
-import { Button, Card, CardContent, Badge, Input, Select, SelectTrigger, SelectContent, SelectItem, Label } from '@/components/ui';
+import { Calendar, User, Check, Camera, Download, Star, UserCirclePlus } from '@phosphor-icons/react';
+import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 interface FormData {
@@ -60,7 +60,6 @@ export default function SubmitPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
     setSubmissionCode(generateCode());
     setShowSuccess(true);
@@ -147,16 +146,16 @@ export default function SubmitPage() {
 
                 <div className="space-y-2">
                   <Label className="text-white/70">Campaign</Label>
-                  <Select value={formData.campaign_id} onValueChange={(v) => updateFormData('campaign_id', v)}>
-                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                      <SelectValue placeholder="Pilih Campaign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaigns.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={formData.campaign_id}
+                    onChange={(e) => updateFormData('campaign_id', e.target.value)}
+                    className="w-full h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="" className="bg-slate-900">Pilih Campaign</option>
+                    {campaigns.map(c => (
+                      <option key={c.id} value={c.id} className="bg-slate-900">{c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </CardContent>
@@ -190,16 +189,16 @@ export default function SubmitPage() {
 
                 <div className="space-y-2">
                   <Label className="text-white/70">Nama PIC</Label>
-                  <Select value={formData.pic_id} onValueChange={(v) => updateFormData('pic_id', v)}>
-                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                      <SelectValue placeholder="Pilih PIC" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pics.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={formData.pic_id}
+                    onChange={(e) => updateFormData('pic_id', e.target.value)}
+                    className="w-full h-11 px-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="" className="bg-slate-900">Pilih PIC</option>
+                    {pics.map(p => (
+                      <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </CardContent>
@@ -246,7 +245,7 @@ export default function SubmitPage() {
                        onClick={() => updateFormData('screenshot_register', 'uploaded')}>
                     <div className="flex items-center gap-4">
                       <div className="p-3 rounded-xl bg-purple-500/20">
-                        <Smartphone size={24} className="text-purple-400" />
+                        <UserCirclePlus size={24} className="text-purple-400" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-white">Screenshot Registrasi</p>
