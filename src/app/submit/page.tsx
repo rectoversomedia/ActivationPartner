@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
   DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner, ShieldCheck,
-  Image as ImageIcon, Info, AlertTriangle
+  Image as ImageIcon, Info, AlertTriangle, Download
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,11 @@ interface Campaign {
   name: string;
   code: string;
   fee_per_activation: number;
+  brand_logo_url?: string;
+  download_url?: string;
+  form_url?: string;
+  assets_url?: string;
+  redirect_url?: string;
   fraud_rules: {
     require_screenshot_download: boolean;
     require_screenshot_register: boolean;

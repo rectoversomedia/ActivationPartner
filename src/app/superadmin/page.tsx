@@ -10,7 +10,8 @@ import {
   FloppyDisk, List, Buildings, UserCircle, Camera, Copy,
   WifiHigh, Desktop, Timer, MapTrifold, DotsSixVertical, TextT,
   SignOut, UserCircleCheck, ArrowLeft, Robot, Fingerprint,
-  Info, Image as ImageIcon, CheckSquare, Square, Trash3
+  Info, Image as ImageIcon, CheckSquare, Square, Trash3,
+  Download, Link as LinkIcon, ImageSquare
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,11 @@ interface Campaign {
   name: string;
   code: string;
   fee_per_activation: number;
+  brand_logo_url?: string;
+  download_url?: string;
+  form_url?: string;
+  assets_url?: string;
+  redirect_url?: string;
   fraud_rules: FraudRuleConfig;
   allowed_regions: Region[];
   required_evidence: EvidenceItem[];
@@ -257,6 +263,11 @@ interface CampaignFormData {
   name: string;
   code: string;
   fee_per_activation: number;
+  brand_logo_url?: string;
+  download_url?: string;
+  form_url?: string;
+  assets_url?: string;
+  redirect_url?: string;
   fraud_rules: FraudRuleConfig;
   required_evidence: EvidenceItem[];
   form_fields: FormField[];
@@ -339,6 +350,11 @@ export default function SuperAdminPage() {
         name: campaign.name,
         code: campaign.code,
         fee_per_activation: campaign.fee_per_activation,
+        brand_logo_url: campaign.brand_logo_url || '',
+        download_url: campaign.download_url || '',
+        form_url: campaign.form_url || '',
+        assets_url: campaign.assets_url || '',
+        redirect_url: campaign.redirect_url || '',
         fraud_rules: { ...DEFAULT_FRAUD_RULES, ...campaign.fraud_rules },
         required_evidence: [...campaign.required_evidence || DEFAULT_EVIDENCE],
         form_fields: [...campaign.form_fields || DEFAULT_FORM_FIELDS],
@@ -349,6 +365,11 @@ export default function SuperAdminPage() {
         name: '',
         code: '',
         fee_per_activation: 5000,
+        brand_logo_url: '',
+        download_url: '',
+        form_url: '',
+        assets_url: '',
+        redirect_url: '',
         fraud_rules: { ...DEFAULT_FRAUD_RULES },
         required_evidence: [...DEFAULT_EVIDENCE],
         form_fields: [...DEFAULT_FORM_FIELDS],
@@ -566,6 +587,121 @@ export default function SuperAdminPage() {
                     />
                     <span className="font-medium">Campaign Active</span>
                   </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Brand & URLs */}
+          <Card className="bg-white border-slate-200 shadow-sm">
+            <CardContent className="p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <ImageSquare size={20} className="text-pink-600" />
+                Brand & URLs
+              </h2>
+              <p className="text-sm text-slate-500 mb-4">Logo dan URL fleksibel untuk campaign ini</p>
+
+              <div className="space-y-4">
+                {/* Brand Logo */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <ImageSquare size={16} className="text-pink-500" />
+                    Brand Logo URL
+                  </label>
+                  <Input
+                    value={editingCampaign.brand_logo_url || ''}
+                    onChange={(e) => setEditingCampaign({ ...editingCampaign, brand_logo_url: e.target.value })}
+                    placeholder="https://example.com/logo.png"
+                    className="border-slate-200"
+                  />
+                  <p className="text-xs text-slate-400">Upload logo ke Supabase Storage atau hosting lain, paste URL di sini</p>
+                </div>
+
+                {/* Logo Preview */}
+                {editingCampaign.brand_logo_url && (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-xs text-slate-500 mb-2 font-semibold">Logo Preview:</p>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={editingCampaign.brand_logo_url}
+                        alt="Brand Logo Preview"
+                        className="h-12 w-auto object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingCampaign({ ...editingCampaign, brand_logo_url: '' })}
+                        className="text-red-500"
+                      >
+                        <Trash size={16} className="mr-1" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Flexible URLs */}
+                <div className="pt-4 border-t border-slate-200">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Flexible URLs</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Download URL */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <Download size={14} className="text-emerald-500" />
+                        Download URL
+                      </label>
+                      <Input
+                        value={editingCampaign.download_url || ''}
+                        onChange={(e) => setEditingCampaign({ ...editingCampaign, download_url: e.target.value })}
+                        placeholder="https://play.google.com/..."
+                        className="border-slate-200 text-sm"
+                      />
+                    </div>
+
+                    {/* Form URL */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <LinkIcon size={14} className="text-blue-500" />
+                        Form URL
+                      </label>
+                      <Input
+                        value={editingCampaign.form_url || ''}
+                        onChange={(e) => setEditingCampaign({ ...editingCampaign, form_url: e.target.value })}
+                        placeholder="https://landing.page/form"
+                        className="border-slate-200 text-sm"
+                      />
+                    </div>
+
+                    {/* Assets URL */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <ImageIcon size={14} className="text-purple-500" />
+                        Assets URL
+                      </label>
+                      <Input
+                        value={editingCampaign.assets_url || ''}
+                        onChange={(e) => setEditingCampaign({ ...editingCampaign, assets_url: e.target.value })}
+                        placeholder="https://drive.google.com/..."
+                        className="border-slate-200 text-sm"
+                      />
+                    </div>
+
+                    {/* Redirect URL */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <ArrowLeft size={14} className="text-amber-500" />
+                        Redirect URL
+                      </label>
+                      <Input
+                        value={editingCampaign.redirect_url || ''}
+                        onChange={(e) => setEditingCampaign({ ...editingCampaign, redirect_url: e.target.value })}
+                        placeholder="https://thankyou.page"
+                        className="border-slate-200 text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
