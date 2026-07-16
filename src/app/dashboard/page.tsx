@@ -228,45 +228,44 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12">
-                <Image
-                  src="/Logo Rectoverso.png"
-                  alt="RECTOVERSO"
-                  width={48}
-                  height={48}
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-                <p className="text-sm text-slate-500">Monitoring & QC</p>
-              </div>
+    <div className="min-h-screen bg-slate-100">
+      {/* Header - Clean with centered logo */}
+      <header className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {/* Logo & Title - Centered */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-16 h-16 mb-4">
+              <Image
+                src="/Logo Rectoverso.png"
+                alt="RECTOVERSO"
+                width={64}
+                height={64}
+                className="w-full h-full object-contain"
+              />
             </div>
-            <div className="flex items-center gap-3">
-              <Link href="/submit">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus size={18} className="mr-2" /> New Submission
-                </Button>
-              </Link>
-              <Link href="/admin">
-                <Button variant="outline">
-                  <Shield size={18} className="mr-2" /> Admin
-                </Button>
-              </Link>
-            </div>
+            <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+            <p className="text-sm text-slate-500">Monitoring & QC</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/submit">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                <Plus size={18} className="mr-2" /> New Submission
+              </Button>
+            </Link>
+            <Link href="/admin">
+              <Button variant="outline">
+                <Shield size={18} className="mr-2" /> Admin
+              </Button>
+            </Link>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card className="bg-white">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
