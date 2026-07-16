@@ -16,7 +16,7 @@ const FRAUD_REASONS: Record<string, string> = {
   INSUFFICIENT_EVIDENCE: 'Bukti aktivasi tidak cukup',
   GPS_OUTSIDE_CITY: 'Lokasi GPS di luar kota yang ditentukan',
   DUPLICATE_PHONE: 'Nomor telepon sudah terdaftar sebelumnya',
-  SAME_LOCATION_DIFFERENT_TIME: 'Lokasi yang sama dalam waktu berbeda可疑',
+  SAME_LOCATION_DIFFERENT_TIME: 'Lokasi yang sama dalam waktu berbeda',
   NO_GPS_DATA: 'Data GPS tidak tersedia',
   VIRTUAL_DEVICE: 'Indikasi perangkat virtual/emulator',
 };
@@ -50,7 +50,7 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
       .select('id, customer_name, created_at')
       .eq('device_info', submission.device_info)
       .neq('customer_name', submission.customer_name)
-      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // Last 7 days
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
     if (sameDevice && sameDevice.length > 0) {
       flags.push({
@@ -63,13 +63,13 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
 
   // Check 4: Same phone prefix pattern
   if (submission.customer_phone && submission.customer_phone.length >= 10) {
-    const phonePrefix = submission.customer_phone.substring(0, 4); // e.g., 0812
+    const phonePrefix = submission.customer_phone.substring(0, 4);
     const { data: samePrefix } = await supabase
       .from('submissions')
       .select('id, customer_phone')
       .like('customer_phone', `${phonePrefix}%`)
       .neq('customer_name', submission.customer_name)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
     if (samePrefix && samePrefix.length > 2) {
       flags.push({
@@ -100,7 +100,6 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
     const lat = parseFloat(submission.gps_lat);
     const lng = parseFloat(submission.gps_lng);
 
-    // Check for coordinates in middle of ocean or impossible locations
     if (lat === 0 && lng === 0) {
       flags.push({
         flag: 'GPS_SUSPICIOUS',
@@ -109,13 +108,11 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
       });
     }
 
-    // Check for far away locations (suspicious)
-    // Jakarta approximate: -6.2, 106.8
     const jakartaLat = -6.2;
     const jakartaLng = 106.8;
     const distance = Math.sqrt(Math.pow(lat - jakartaLat, 2) + Math.pow(lng - jakartaLng, 2));
 
-    if (distance > 10) { // More than ~10 degrees is suspicious
+    if (distance > 10) {
       flags.push({
         flag: 'GPS_OUTSIDE_CITY',
         reason: 'Lokasi GPS jauh dari area operasional (di luar Jawa?)',
@@ -125,6 +122,39 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
   }
 
   return flags;
+}
+
+// Upload file to Supabase Storage
+async function uploadFile(supabase: any, file: File, submissionCode: string, type: string): Promise<string | null> {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `${submissionCode}/${type}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+
+    const { data, error } = await supabase.storage
+      .from('screenshots')
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error(`Upload error for ${type}:`, error);
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('screenshots')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error(`Upload exception for ${type}:`, error);
+    return null;
+  }
 }
 
 // GET - Fetch submissions
@@ -176,18 +206,31 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new submission
+// POST - Create new submission with file upload
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const body = await request.json();
+
+    // Parse FormData
+    const formData = await request.formData();
+
+    // Extract text fields
+    const sales_id = formData.get('sales_id') as string;
+    const pic_id = formData.get('pic_id') as string;
+    const campaign_id = formData.get('campaign_id') as string;
+    const customer_name = formData.get('customer_name') as string;
+    const customer_phone = formData.get('customer_phone') as string;
+    const customer_email = formData.get('customer_email') as string;
+    const sales_name = formData.get('sales_name') as string;
+    const pic_name = formData.get('pic_name') as string;
+    const campaign_name = formData.get('campaign_name') as string;
+    const device_info = formData.get('device_info') as string;
+    const gps_lat = formData.get('gps_lat') as string;
+    const gps_lng = formData.get('gps_lng') as string;
 
     // Validate required fields
-    const requiredFields = ['sales_id', 'pic_id', 'campaign_id', 'customer_name', 'customer_phone'];
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 });
-      }
+    if (!sales_id || !pic_id || !campaign_id || !customer_name || !customer_phone) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Generate submission code
@@ -198,21 +241,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Normalize phone
-    let phone = body.customer_phone.replace(/[^\d+]/g, '');
+    let phone = customer_phone.replace(/[^\d+]/g, '');
     if (phone.startsWith('0')) {
       phone = '+62' + phone.slice(1);
     }
 
     // Prepare submission data for fraud check
     const submissionData = {
-      device_info: body.device_info || null,
+      device_info: device_info || null,
       customer_phone: phone,
-      customer_name: body.customer_name,
-      gps_lat: body.gps_lat || null,
-      gps_lng: body.gps_lng || null,
-      screenshot_download: body.screenshot_download || false,
-      screenshot_register: body.screenshot_register || false,
-      screenshot_rating: body.screenshot_rating || false,
+      customer_name,
+      gps_lat: gps_lat || null,
+      gps_lng: gps_lng || null,
+      screenshot_download: true, // Files are present
+      screenshot_register: true,
+      screenshot_rating: true,
     };
 
     // Run fraud detection
@@ -233,28 +276,28 @@ export async function POST(request: NextRequest) {
       severity: f.severity,
     })));
 
-    // Insert to Supabase
+    // Insert submission first (without file URLs)
     const { data, error } = await supabase
       .from('submissions')
       .insert({
         submission_code: submissionCode,
-        sales_id: body.sales_id,
-        sales_name: body.sales_name,
-        pic_id: body.pic_id,
-        pic_name: body.pic_name,
-        campaign_id: body.campaign_id,
-        campaign_name: body.campaign_name,
-        customer_name: body.customer_name,
-        customer_email: body.customer_email || null,
+        sales_id,
+        sales_name,
+        pic_id,
+        pic_name,
+        campaign_id,
+        campaign_name,
+        customer_name,
+        customer_email: customer_email || null,
         customer_phone: phone,
         customer_phone_masked: phone.slice(0, 4) + '****' + phone.slice(-4),
-        device_info: body.device_info || null,
-        gps_lat: body.gps_lat ? parseFloat(body.gps_lat) : null,
-        gps_lng: body.gps_lng ? parseFloat(body.gps_lng) : null,
-        screenshot_download: !!body.screenshot_download,
-        screenshot_register: !!body.screenshot_register,
-        screenshot_rating: !!body.screenshot_rating,
-        status: status,
+        device_info: device_info || null,
+        gps_lat: gps_lat ? parseFloat(gps_lat) : null,
+        gps_lng: gps_lng ? parseFloat(gps_lng) : null,
+        screenshot_download: true,
+        screenshot_register: true,
+        screenshot_rating: true,
+        status,
         fraud_flags: fraudFlagsJson,
         qc_notes: fraudFlags.length > 0 ? fraudFlags.map(f => f.reason).join('; ') : null,
         ip_address: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
@@ -268,8 +311,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Upload files after submission is created
+    const uploadedUrls: Record<string, string> = {};
+
+    const screenshotDownload = formData.get('screenshot_download') as File | null;
+    const screenshotRegister = formData.get('screenshot_register') as File | null;
+    const screenshotRating = formData.get('screenshot_rating') as File | null;
+
+    if (screenshotDownload) {
+      const url = await uploadFile(supabase, screenshotDownload, submissionCode, 'download');
+      if (url) uploadedUrls.screenshot_download_url = url;
+    }
+    if (screenshotRegister) {
+      const url = await uploadFile(supabase, screenshotRegister, submissionCode, 'register');
+      if (url) uploadedUrls.screenshot_register_url = url;
+    }
+    if (screenshotRating) {
+      const url = await uploadFile(supabase, screenshotRating, submissionCode, 'rating');
+      if (url) uploadedUrls.screenshot_rating_url = url;
+    }
+
+    // Update submission with file URLs
+    if (Object.keys(uploadedUrls).length > 0) {
+      await supabase
+        .from('submissions')
+        .update(uploadedUrls)
+        .eq('id', data.id);
+    }
+
     return NextResponse.json({
-      data,
+      data: { ...data, ...uploadedUrls },
       submissionCode,
       status,
       fraudFlags,

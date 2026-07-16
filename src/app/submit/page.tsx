@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
-  DeviceMobile, MapPin, Clock, Fingerprint
+  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -43,10 +43,9 @@ interface FormData {
   ip_address: string;
   gps_lat: string;
   gps_lng: string;
-  ip_address: string;
-  screenshot_download: string | null;
-  screenshot_register: string | null;
-  screenshot_rating: string | null;
+  screenshot_download: File | null;
+  screenshot_register: File | null;
+  screenshot_rating: File | null;
 }
 
 export default function SubmitPage() {
@@ -71,9 +70,30 @@ export default function SubmitPage() {
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [submissionCode, setSubmissionCode] = React.useState('');
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [previews, setPreviews] = React.useState<Record<string, string>>({});
 
-  const updateFormData = (field: keyof FormData, value: string | null) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const updateFormData = (field: keyof FormData, value: string | null | File) => {
+    setFormData(prev => ({ ...prev, [field]: value as any }));
+  };
+
+  // Handle file selection with preview
+  const handleFileChange = (field: 'screenshot_download' | 'screenshot_register' | 'screenshot_rating', file: File | null) => {
+    if (file) {
+      updateFormData(field, file);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviews(prev => ({ ...prev, [field]: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    } else {
+      updateFormData(field, null);
+      setPreviews(prev => {
+        const newPreviews = { ...prev };
+        delete newPreviews[field];
+        return newPreviews;
+      });
+    }
   };
 
   // Get device fingerprint
@@ -142,27 +162,36 @@ export default function SubmitPage() {
       const selectedPic = masterData.pics.find(p => p.id === formData.pic_id)?.name || '';
       const selectedCampaign = masterData.campaigns.find(c => c.id === formData.campaign_id)?.name || '';
 
+      // Create FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('sales_id', formData.sales_id);
+      formDataToSend.append('sales_name', selectedSales);
+      formDataToSend.append('pic_id', formData.pic_id);
+      formDataToSend.append('pic_name', selectedPic);
+      formDataToSend.append('campaign_id', formData.campaign_id);
+      formDataToSend.append('campaign_name', selectedCampaign);
+      formDataToSend.append('customer_name', formData.customer_name);
+      formDataToSend.append('customer_email', formData.customer_email);
+      formDataToSend.append('customer_phone', formData.customer_phone);
+      formDataToSend.append('device_info', formData.device_info);
+      formDataToSend.append('ip_address', formData.ip_address);
+      formDataToSend.append('gps_lat', formData.gps_lat);
+      formDataToSend.append('gps_lng', formData.gps_lng);
+
+      // Append files if they exist
+      if (formData.screenshot_download) {
+        formDataToSend.append('screenshot_download', formData.screenshot_download);
+      }
+      if (formData.screenshot_register) {
+        formDataToSend.append('screenshot_register', formData.screenshot_register);
+      }
+      if (formData.screenshot_rating) {
+        formDataToSend.append('screenshot_rating', formData.screenshot_rating);
+      }
+
       const response = await fetch('/api/submissions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sales_id: formData.sales_id,
-          sales_name: selectedSales,
-          pic_id: formData.pic_id,
-          pic_name: selectedPic,
-          campaign_id: formData.campaign_id,
-          campaign_name: selectedCampaign,
-          customer_name: formData.customer_name,
-          customer_email: formData.customer_email,
-          customer_phone: formData.customer_phone,
-          device_info: formData.device_info,
-          ip_address: formData.ip_address,
-          gps_lat: formData.gps_lat,
-          gps_lng: formData.gps_lng,
-          screenshot_download: !!formData.screenshot_download,
-          screenshot_register: !!formData.screenshot_register,
-          screenshot_rating: !!formData.screenshot_rating,
-        }),
+        body: formDataToSend,
       });
 
       const result = await response.json();
@@ -185,7 +214,8 @@ export default function SubmitPage() {
                       formData.pic_id && formData.campaign_id &&
                       formData.customer_name && formData.customer_phone &&
                       formData.screenshot_download &&
-                      formData.screenshot_register && formData.screenshot_rating;
+                      formData.screenshot_register &&
+                      formData.screenshot_rating;
 
   // Get selected names
   const selectedSales = masterData.sales.find(s => s.id === formData.sales_id)?.name || '';
@@ -364,14 +394,13 @@ export default function SubmitPage() {
               {/* Download */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-200',
                   formData.screenshot_download
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    : 'border-dashed border-slate-300'
                 )}
-                onClick={() => updateFormData('screenshot_download', formData.screenshot_download ? null : 'uploaded')}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-3">
                   <div className={cn(
                     'p-2 rounded-lg',
                     formData.screenshot_download ? 'bg-blue-500' : 'bg-slate-100'
@@ -380,27 +409,34 @@ export default function SubmitPage() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900">Bukti Screenshot Download</p>
-                    <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
+                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
                   </div>
-                  {formData.screenshot_download && (
-                    <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
                 </div>
+
+                {previews.screenshot_download ? (
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img src={previews.screenshot_download} alt="Preview" className="w-full h-40 object-cover" />
+                    <button type="button" onClick={() => handleFileChange('screenshot_download', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
+                    <Upload size={24} className="text-slate-400 mb-2" />
+                    <span className="text-sm text-slate-500">Tap to upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_download', e.target.files?.[0] || null)} className="hidden" />
+                  </label>
+                )}
               </div>
 
               {/* Register */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-200',
                   formData.screenshot_register
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    : 'border-dashed border-slate-300'
                 )}
-                onClick={() => updateFormData('screenshot_register', formData.screenshot_register ? null : 'uploaded')}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-3">
                   <div className={cn(
                     'p-2 rounded-lg',
                     formData.screenshot_register ? 'bg-blue-500' : 'bg-slate-100'
@@ -409,27 +445,34 @@ export default function SubmitPage() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900">Bukti Screenshot Registrasi</p>
-                    <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
+                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
                   </div>
-                  {formData.screenshot_register && (
-                    <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
                 </div>
+
+                {previews.screenshot_register ? (
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img src={previews.screenshot_register} alt="Preview" className="w-full h-40 object-cover" />
+                    <button type="button" onClick={() => handleFileChange('screenshot_register', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
+                    <Upload size={24} className="text-slate-400 mb-2" />
+                    <span className="text-sm text-slate-500">Tap to upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_register', e.target.files?.[0] || null)} className="hidden" />
+                  </label>
+                )}
               </div>
 
               {/* Rating */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200 cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-200',
                   formData.screenshot_rating
                     ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    : 'border-dashed border-slate-300'
                 )}
-                onClick={() => updateFormData('screenshot_rating', formData.screenshot_rating ? null : 'uploaded')}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-3">
                   <div className={cn(
                     'p-2 rounded-lg',
                     formData.screenshot_rating ? 'bg-blue-500' : 'bg-slate-100'
@@ -438,14 +481,22 @@ export default function SubmitPage() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900">Bukti Screenshot Review & Rating</p>
-                    <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
+                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
                   </div>
-                  {formData.screenshot_rating && (
-                    <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
                 </div>
+
+                {previews.screenshot_rating ? (
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img src={previews.screenshot_rating} alt="Preview" className="w-full h-40 object-cover" />
+                    <button type="button" onClick={() => handleFileChange('screenshot_rating', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
+                    <Upload size={24} className="text-slate-400 mb-2" />
+                    <span className="text-sm text-slate-500">Tap to upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_rating', e.target.files?.[0] || null)} className="hidden" />
+                  </label>
+                )}
               </div>
             </div>
 
@@ -545,6 +596,7 @@ export default function SubmitPage() {
               <Button
                 onClick={() => {
                   setShowSuccess(false);
+                  setPreviews({});
                   setFormData({
                     date: new Date().toISOString().split('T')[0],
                     time: new Date().toTimeString().slice(0, 5),

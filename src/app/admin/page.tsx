@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   CheckCircle, XCircle, Clock, Warning, Eye, Shield,
   Funnel, ArrowLeft, User, Calendar, Phone, Envelope,
-  MapPin, DeviceMobile, Camera, Check
+  MapPin, DeviceMobile, Camera, Check, Image as ImageIcon
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -33,8 +33,11 @@ interface Submission {
   gps_lat: number;
   gps_lng: number;
   screenshot_download: boolean;
+  screenshot_download_url: string | null;
   screenshot_register: boolean;
+  screenshot_register_url: string | null;
   screenshot_rating: boolean;
+  screenshot_rating_url: string | null;
   fraud_flags: string;
   qc_notes: string;
 }
@@ -394,24 +397,45 @@ export default function AdminQCPage() {
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { key: 'screenshot_download', label: 'Download' },
-                    { key: 'screenshot_register', label: 'Registrasi' },
-                    { key: 'screenshot_rating', label: 'Rating' },
+                    {
+                      key: 'screenshot_download',
+                      label: 'Download',
+                      urlKey: 'screenshot_download_url'
+                    },
+                    {
+                      key: 'screenshot_register',
+                      label: 'Registrasi',
+                      urlKey: 'screenshot_register_url'
+                    },
+                    {
+                      key: 'screenshot_rating',
+                      label: 'Rating',
+                      urlKey: 'screenshot_rating_url'
+                    },
                   ].map((item) => {
-                    const value = selectedSubmission[item.key as keyof Submission];
+                    const hasFile = selectedSubmission[item.key as keyof Submission] as boolean;
+                    const imageUrl = selectedSubmission[item.urlKey as keyof Submission] as string | null;
                     return (
-                      <div
+                      <a
                         key={item.key}
+                        href={imageUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className={cn(
-                          'aspect-square rounded-xl flex flex-col items-center justify-center gap-2',
-                          value
-                            ? 'bg-emerald-100 border-2 border-emerald-300'
+                          'aspect-square rounded-xl flex flex-col items-center justify-center gap-2 overflow-hidden transition-all',
+                          hasFile && imageUrl
+                            ? 'bg-emerald-100 border-2 border-emerald-300 cursor-pointer hover:border-emerald-400'
                             : 'bg-slate-50 border-2 border-dashed border-slate-200'
                         )}
                       >
-                        {value ? (
+                        {hasFile && imageUrl ? (
                           <>
-                            <CheckCircle size={24} className="text-emerald-500" />
+                            <img src={imageUrl} alt={item.label} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1">{item.label}</span>
+                          </>
+                        ) : hasFile ? (
+                          <>
+                            <ImageIcon size={24} className="text-emerald-500" />
                             <span className="text-xs font-medium text-emerald-700">{item.label}</span>
                           </>
                         ) : (
@@ -420,7 +444,7 @@ export default function AdminQCPage() {
                             <span className="text-xs text-slate-400">{item.label}</span>
                           </>
                         )}
-                      </div>
+                      </a>
                     );
                   })}
                 </div>
