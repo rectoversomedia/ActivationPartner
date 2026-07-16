@@ -112,7 +112,7 @@ export default function AdminDashboard() {
           <Card className="lg:col-span-2 animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <div><h3 className="font-semibold text-slate-900">Submission & Validasi Trend</h3><p className="text-sm text-slate-500">This week's performance</p></div>
+                <div><h3 className="font-semibold text-slate-900">Submission &amp; Validasi Trend</h3><p className="text-sm text-slate-500">This week&apos;s performance</p></div>
                 <div className="flex gap-4">
                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-xs text-slate-500">Submissions</span></div>
                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className="text-xs text-slate-500">Valid</span></div>
