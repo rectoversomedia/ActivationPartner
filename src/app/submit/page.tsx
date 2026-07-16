@@ -2,8 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check } from '@phosphor-icons/react';
+import { Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check, Sparkle } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -76,54 +75,86 @@ export default function SubmitPage() {
                       formData.screenshot_register && formData.screenshot_rating;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-400/30 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-purple-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
       {/* Header with Logo */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="relative bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-md mx-auto px-4 py-6">
           {/* Logo */}
-          <div className="flex items-center justify-center mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">R</span>
+          <div className="flex flex-col items-center mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-pink-400 rounded-full blur-xl opacity-50 animate-pulse" />
+              <h1
+                className="relative text-4xl font-extrabold italic tracking-tight bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
+                style={{
+                  fontFamily: 'Arial Black, sans-serif',
+                  textShadow: '0 0 40px rgba(59, 130, 246, 0.5)',
+                }}
+              >
+                rectoverso
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Sparkle size={16} className="text-amber-400 animate-bounce" />
+              <p className="text-sm text-white/80 font-medium">Activation System</p>
+              <Sparkle size={16} className="text-amber-400 animate-bounce" style={{ animationDelay: '0.5s' }} />
             </div>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 text-center">RECTOVERSO</h1>
-          <p className="text-sm text-slate-500 text-center">Activation System</p>
         </div>
       </header>
 
       {/* Report Sales Title */}
-      <div className="max-w-md mx-auto px-4 py-6">
-        <h2 className="text-lg font-semibold text-slate-900">Report Sales</h2>
+      <div className="relative max-w-md mx-auto px-4 py-6">
+        <div className="flex items-center justify-center gap-3">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+          <h2 className="text-2xl font-bold text-white text-center">
+            Report Sales
+          </h2>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+        </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
-        <Card className="bg-white border-slate-200">
+      <form onSubmit={handleSubmit} className="relative max-w-md mx-auto px-4 pb-8">
+        <Card className="bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden">
+          {/* Gradient top border */}
+          <div className="h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+
           <CardContent className="p-6 space-y-5">
             {/* Date */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <Calendar size={18} className="text-blue-500" />
+                <div className="p-1 rounded-md bg-blue-100">
+                  <Calendar size={16} className="text-blue-600" />
+                </div>
                 Date
               </Label>
               <Input
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateFormData('date', e.target.value)}
-                className="border-slate-200 focus:border-blue-500"
+                className="border-slate-200 focus:border-blue-500 bg-slate-50"
               />
             </div>
 
             {/* Campaign */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <Flag size={18} className="text-purple-500" />
+                <div className="p-1 rounded-md bg-purple-100">
+                  <Flag size={16} className="text-purple-600" />
+                </div>
                 Campaign
               </Label>
               <select
                 value={formData.campaign_id}
                 onChange={(e) => updateFormData('campaign_id', e.target.value)}
-                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-slate-50"
               >
                 <option value="">Pilih Campaign</option>
                 {campaigns.map(c => (
@@ -135,13 +166,15 @@ export default function SubmitPage() {
             {/* PIC */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <UserCircle size={18} className="text-emerald-500" />
+                <div className="p-1 rounded-md bg-emerald-100">
+                  <UserCircle size={16} className="text-emerald-600" />
+                </div>
                 PIC
               </Label>
               <select
                 value={formData.pic_id}
                 onChange={(e) => updateFormData('pic_id', e.target.value)}
-                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-slate-50"
               >
                 <option value="">Pilih PIC</option>
                 {pics.map(p => (
@@ -153,20 +186,25 @@ export default function SubmitPage() {
             {/* Sales */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <User size={18} className="text-amber-500" />
+                <div className="p-1 rounded-md bg-amber-100">
+                  <User size={16} className="text-amber-600" />
+                </div>
                 Sales
               </Label>
               <Input
                 placeholder="Nama sales"
                 value={formData.sales_name}
                 onChange={(e) => updateFormData('sales_name', e.target.value)}
-                className="border-slate-200 focus:border-blue-500"
+                className="border-slate-200 focus:border-blue-500 bg-slate-50"
               />
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-100 my-4" />
-            <p className="text-sm font-medium text-slate-900">Data Customer</p>
+            <div className="border-t border-gradient-to-r from-blue-500 to-purple-500 my-4" />
+            <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500" />
+              Data Customer
+            </p>
 
             {/* Nama Customer */}
             <div className="space-y-2">
@@ -175,14 +213,16 @@ export default function SubmitPage() {
                 placeholder="Nama lengkap customer"
                 value={formData.customer_name}
                 onChange={(e) => updateFormData('customer_name', e.target.value)}
-                className="border-slate-200 focus:border-blue-500"
+                className="border-slate-200 focus:border-blue-500 bg-slate-50"
               />
             </div>
 
             {/* Email Customer */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <Envelope size={18} className="text-blue-500" />
+                <div className="p-1 rounded-md bg-blue-100">
+                  <Envelope size={16} className="text-blue-600" />
+                </div>
                 Email Customer
               </Label>
               <Input
@@ -190,14 +230,16 @@ export default function SubmitPage() {
                 placeholder="email@domain.com"
                 value={formData.customer_email}
                 onChange={(e) => updateFormData('customer_email', e.target.value)}
-                className="border-slate-200 focus:border-blue-500"
+                className="border-slate-200 focus:border-blue-500 bg-slate-50"
               />
             </div>
 
             {/* No Tlp Customer */}
             <div className="space-y-2">
               <Label className="text-slate-700 flex items-center gap-2">
-                <Phone size={18} className="text-green-500" />
+                <div className="p-1 rounded-md bg-green-100">
+                  <Phone size={16} className="text-green-600" />
+                </div>
                 No Tlp Customer
               </Label>
               <Input
@@ -205,29 +247,32 @@ export default function SubmitPage() {
                 placeholder="08xxxxxxxxxx"
                 value={formData.customer_phone}
                 onChange={(e) => updateFormData('customer_phone', e.target.value)}
-                className="border-slate-200 focus:border-blue-500"
+                className="border-slate-200 focus:border-blue-500 bg-slate-50"
               />
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-100 my-4" />
-            <p className="text-sm font-medium text-slate-900">Bukti Screenshot</p>
+            <div className="border-t border-gradient-to-r from-blue-500 to-purple-500 my-4" />
+            <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-pink-500" />
+              Bukti Screenshot
+            </p>
 
             {/* Screenshots */}
             <div className="space-y-3">
               {/* Download */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer',
                   formData.screenshot_download
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50 shadow-lg shadow-blue-500/20'
+                    : 'border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/50'
                 )}
                 onClick={() => updateFormData('screenshot_download', formData.screenshot_download ? null : 'uploaded')}
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    'p-2 rounded-lg',
+                    'p-2 rounded-lg transition-all',
                     formData.screenshot_download ? 'bg-blue-500' : 'bg-slate-100'
                   )}>
                     <Camera size={20} className={formData.screenshot_download ? 'text-white' : 'text-slate-500'} />
@@ -237,7 +282,7 @@ export default function SubmitPage() {
                     <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
                   </div>
                   {formData.screenshot_download && (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center animate-bounce-in">
                       <Check size={14} className="text-white" />
                     </div>
                   )}
@@ -247,17 +292,17 @@ export default function SubmitPage() {
               {/* Register */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer',
                   formData.screenshot_register
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg shadow-purple-500/20'
+                    : 'border-dashed border-slate-300 hover:border-purple-400 hover:bg-purple-50/50'
                 )}
                 onClick={() => updateFormData('screenshot_register', formData.screenshot_register ? null : 'uploaded')}
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    'p-2 rounded-lg',
-                    formData.screenshot_register ? 'bg-blue-500' : 'bg-slate-100'
+                    'p-2 rounded-lg transition-all',
+                    formData.screenshot_register ? 'bg-purple-500' : 'bg-slate-100'
                   )}>
                     <Camera size={20} className={formData.screenshot_register ? 'text-white' : 'text-slate-500'} />
                   </div>
@@ -266,7 +311,7 @@ export default function SubmitPage() {
                     <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
                   </div>
                   {formData.screenshot_register && (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center animate-bounce-in">
                       <Check size={14} className="text-white" />
                     </div>
                   )}
@@ -276,17 +321,17 @@ export default function SubmitPage() {
               {/* Rating */}
               <div
                 className={cn(
-                  'p-4 rounded-xl border-2 transition-all cursor-pointer',
+                  'p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer',
                   formData.screenshot_rating
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300 hover:border-blue-400'
+                    ? 'border-pink-500 bg-gradient-to-r from-pink-50 to-amber-50 shadow-lg shadow-pink-500/20'
+                    : 'border-dashed border-slate-300 hover:border-pink-400 hover:bg-pink-50/50'
                 )}
                 onClick={() => updateFormData('screenshot_rating', formData.screenshot_rating ? null : 'uploaded')}
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    'p-2 rounded-lg',
-                    formData.screenshot_rating ? 'bg-blue-500' : 'bg-slate-100'
+                    'p-2 rounded-lg transition-all',
+                    formData.screenshot_rating ? 'bg-pink-500' : 'bg-slate-100'
                   )}>
                     <Camera size={20} className={formData.screenshot_rating ? 'text-white' : 'text-slate-500'} />
                   </div>
@@ -295,7 +340,7 @@ export default function SubmitPage() {
                     <p className="text-xs text-slate-500">Tap to mark as uploaded</p>
                   </div>
                   {formData.screenshot_rating && (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-pink-500 flex items-center justify-center animate-bounce-in">
                       <Check size={14} className="text-white" />
                     </div>
                   )}
@@ -311,15 +356,25 @@ export default function SubmitPage() {
             type="submit"
             disabled={!isFormValid}
             isLoading={isSubmitting}
-            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50"
+            className="w-full h-14 text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 shadow-xl shadow-purple-500/30 disabled:opacity-50 rounded-xl"
           >
-            {isSubmitting ? 'Mengirim...' : 'Submit Report'}
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Mengirim...
+              </>
+            ) : (
+              '🚀 Submit Report'
+            )}
           </Button>
         </div>
 
         {/* Dashboard Link */}
         <div className="mt-4 text-center">
-          <Link href="/dashboard" className="text-sm text-slate-500 hover:text-blue-600 transition-colors">
+          <Link href="/dashboard" className="text-sm text-white/80 hover:text-white transition-colors inline-flex items-center gap-2">
             Lihat Dashboard →
           </Link>
         </div>
@@ -327,18 +382,22 @@ export default function SubmitPage() {
 
       {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="bg-white max-w-sm w-full animate-scale-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="bg-white max-w-sm w-full shadow-2xl rounded-2xl overflow-hidden animate-scale-in">
+            <div className="h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
             <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-                <Check size={32} className="text-emerald-600" />
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-pink-400 rounded-full blur-xl opacity-50" />
+                <div className="relative w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-pink-500 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                  <Check size={40} className="text-white" />
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">Berhasil!</h2>
-              <p className="text-slate-500 mb-4">Submission berhasil disimpan</p>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-pink-600 bg-clip-text text-transparent">Berhasil!</h2>
+              <p className="text-slate-500 mt-2">Submission berhasil disimpan</p>
 
-              <div className="p-4 rounded-xl bg-slate-50 mb-6">
+              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 my-6">
                 <p className="text-xs text-slate-500 mb-1">Kode Aktivasi</p>
-                <p className="text-xl font-mono font-bold text-blue-600">{submissionCode}</p>
+                <p className="text-2xl font-mono font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{submissionCode}</p>
               </div>
 
               <Button
@@ -357,7 +416,7 @@ export default function SubmitPage() {
                     screenshot_rating: null,
                   });
                 }}
-                className="w-full"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
               >
                 Submit Lagi
               </Button>
@@ -365,6 +424,26 @@ export default function SubmitPage() {
           </Card>
         </div>
       )}
+
+      {/* Custom CSS for animations */}
+      <style jsx global>{`
+        @keyframes gradient {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 3s ease infinite;
+        }
+        @keyframes bounce-in {
+          0% { transform: scale(0); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        .animate-bounce-in {
+          animation: bounce-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
