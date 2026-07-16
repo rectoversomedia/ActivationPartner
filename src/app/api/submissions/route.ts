@@ -277,7 +277,7 @@ async function detectFraudV2(
     const { data: deviceFarm } = await query;
 
     if (deviceFarm && deviceFarm.length > 0) {
-      const uniquePhones = [...new Set(deviceFarm.map(s => s.customer_phone))];
+      const uniquePhones = [...new Set(deviceFarm.map((s: any) => s.customer_phone))];
 
       if (uniquePhones.length >= 2) {
         flags.push({
@@ -289,7 +289,7 @@ async function detectFraudV2(
           metadata: {
             deviceHash: deviceValue,
             uniquePhones: uniquePhones.length,
-            submissions: deviceFarm.map(s => s.submission_code),
+            submissions: deviceFarm.map((s: any) => s.submission_code),
           },
         });
       }
@@ -309,11 +309,11 @@ async function detectFraudV2(
       .limit(5);
 
     if (dupIp && dupIp.length > 0) {
-      const uniquePhones = [...new Set(dupIp.map(s => s.customer_phone))];
+      const uniquePhones = [...new Set(dupIp.map((s: any) => s.customer_phone))];
       flags.push({
         flag: "DUPLICATE_IP",
         reason: `IP '${submission.ip_address}' digunakan untuk ${uniquePhones.length + 1} customer berbeda`,
-        severity: "warning" as const,
+        severity: "medium" as const,
         category: "device",
         score: 10,
         metadata: { uniquePhones: uniquePhones.length },
@@ -392,11 +392,11 @@ async function detectFraudV2(
       .limit(10);
 
     if (dupLocation && dupLocation.length > 0) {
-      const uniqueNames = [...new Set(dupLocation.map(s => s.customer_name))];
+      const uniqueNames = [...new Set(dupLocation.map((s: any) => s.customer_name))];
       flags.push({
         flag: "DUPLICATE_LOCATION",
         reason: `${uniqueNames.length + 1} customer berbeda dari lokasi GPS yang sama`,
-        severity: "warning" as const,
+        severity: "medium" as const,
         category: "location",
         score: 10,
         metadata: { uniqueCustomers: uniqueNames.length },
@@ -449,7 +449,7 @@ async function detectFraudV2(
         flags.push({
           flag: "SUBMISSION_VELOCITY",
           reason: `Submission terlalu cepat: ${Math.round(diffSeconds)} detik sejak submission terakhir (min: ${fraudRules.min_seconds_between_submissions} detik)`,
-          severity: "warning" as const,
+          severity: "medium" as const,
           category: "behavior",
           score: 10,
         });

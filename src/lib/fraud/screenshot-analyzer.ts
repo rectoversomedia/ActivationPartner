@@ -166,10 +166,11 @@ export function calculateSimilarity(hash1: string, hash2: string): number {
  */
 async function extractDominantColors(imageData: ImageData, k: number = 5): Promise<string[]> {
   const pixels: [number, number, number][] = [];
+  const data = imageData.data as unknown as number[];
 
   // Sample pixels
-  for (let i = 0; i < imageData.data.length; i += 4) {
-    pixels.push([imageData.data[i], imageData[i + 1], imageData[i + 2]]);
+  for (let i = 0; i < data.length; i += 4) {
+    pixels.push([data[i], data[i + 1], data[i + 2]]);
   }
 
   // Simple clustering

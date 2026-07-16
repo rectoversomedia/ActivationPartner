@@ -609,9 +609,7 @@ export default function DashboardPage() {
                 <div className="p-4 rounded-xl bg-slate-50">
                   <p className="text-xs text-slate-500 mb-1">Customer</p>
                   <p className="font-semibold text-slate-900">{selectedSubmission.customer_name}</p>
-                  <p className="text-sm text-slate-600 flex items-center gap-1 mt-1">
-                    <Phone size={14} /> {selectedSubmission.customer_phone_masked || selectedSubmission.customer_phone}
-                  </p>
+                  <p className="text-sm font-medium text-slate-700">{selectedSubmission.customer_phone}</p>
                   {selectedSubmission.customer_email && (
                     <p className="text-sm text-slate-600 flex items-center gap-1">
                       <Envelope size={14} /> {selectedSubmission.customer_email}
@@ -707,24 +705,27 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-slate-700">{selectedSubmission.device_info || 'N/A'}</p>
                   </div>
                 </div>
-                {fraudFlags.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-200">
-                    <p className="text-xs text-slate-500 mb-2">Fraud Flags ({fraudFlags.length}):</p>
-                    <div className="space-y-1">
-                      {fraudFlags.map((flag: any, i: number) => (
-                        <div key={i} className={cn(
-                          'p-2 rounded text-xs',
-                          flag.severity === 'critical' ? 'bg-red-50 text-red-700' :
-                          flag.severity === 'high' ? 'bg-orange-50 text-orange-700' :
-                          flag.severity === 'medium' ? 'bg-amber-50 text-amber-700' :
-                          'bg-slate-50 text-slate-600'
-                        )}>
-                          <span className="font-semibold">{flag.flag}: </span>{flag.reason}
-                        </div>
-                      ))}
+                {(() => {
+                  const fraudFlags = parseFraudFlags(selectedSubmission.fraud_flags);
+                  return fraudFlags.length > 0 ? (
+                    <div className="mt-3 pt-3 border-t border-slate-200">
+                      <p className="text-xs text-slate-500 mb-2">Fraud Flags ({fraudFlags.length}):</p>
+                      <div className="space-y-1">
+                        {fraudFlags.map((flag: any, i: number) => (
+                          <div key={i} className={cn(
+                            'p-2 rounded text-xs',
+                            flag.severity === 'critical' ? 'bg-red-50 text-red-700' :
+                            flag.severity === 'high' ? 'bg-orange-50 text-orange-700' :
+                            flag.severity === 'medium' ? 'bg-amber-50 text-amber-700' :
+                            'bg-slate-50 text-slate-600'
+                          )}>
+                            <span className="font-semibold">{flag.flag}: </span>{flag.reason}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : null;
+                })()}
               </div>
 
               {/* Screenshots */}

@@ -50,12 +50,14 @@ interface SalesPerson {
   id: string;
   name: string;
   phone: string;
+  is_active?: boolean;
 }
 
 interface PIC {
   id: string;
   name: string;
   phone: string;
+  is_active?: boolean;
 }
 
 export default function SubmitPage() {
@@ -328,8 +330,9 @@ export default function SubmitPage() {
 
       // Add evidence files
       for (const evidence of selectedCampaign.required_evidence) {
-        if (evidenceFiles[evidence.id]) {
-          formDataToSend.append(`evidence_${evidence.id}`, evidenceFiles[evidence.id]);
+        const file = evidenceFiles[evidence.id];
+        if (file) {
+          formDataToSend.append(`evidence_${evidence.id}`, file);
         }
       }
 

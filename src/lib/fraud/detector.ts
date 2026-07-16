@@ -47,6 +47,7 @@ export interface FraudCheckContext {
   mouseClicks?: number;
 
   // Campaign rules
+  campaignId?: string;
   maxSubmissionsPerIpPerHour?: number;
   maxSubmissionsPerDevicePerDay?: number;
   checkDuplicatePhone?: boolean;
