@@ -118,10 +118,49 @@ export default function SubmitPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setSubmissionCode(generateCode());
-    setShowSuccess(true);
-    setIsSubmitting(false);
+
+    try {
+      // Get selected names for the API
+      const selectedSales = masterData.sales.find(s => s.id === formData.sales_id)?.name || '';
+      const selectedPic = masterData.pics.find(p => p.id === formData.pic_id)?.name || '';
+      const selectedCampaign = masterData.campaigns.find(c => c.id === formData.campaign_id)?.name || '';
+
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sales_id: formData.sales_id,
+          sales_name: selectedSales,
+          pic_id: formData.pic_id,
+          pic_name: selectedPic,
+          campaign_id: formData.campaign_id,
+          campaign_name: selectedCampaign,
+          customer_name: formData.customer_name,
+          customer_email: formData.customer_email,
+          customer_phone: formData.customer_phone,
+          device_info: formData.device_info,
+          gps_lat: formData.gps_lat,
+          gps_lng: formData.gps_lng,
+          screenshot_download: !!formData.screenshot_download,
+          screenshot_register: !!formData.screenshot_register,
+          screenshot_rating: !!formData.screenshot_rating,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit');
+      }
+
+      setSubmissionCode(result.submissionCode);
+      setShowSuccess(true);
+    } catch (error) {
+      console.error('Submit error:', error);
+      alert('Gagal submit. Coba lagi.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormValid = formData.date && formData.time && formData.sales_id &&

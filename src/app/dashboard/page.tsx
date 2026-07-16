@@ -133,27 +133,84 @@ const salesStats = [
 
 type StatusFilter = 'all' | 'valid' | 'pending' | 'invalid' | 'fraud';
 
+interface Submission {
+  id: string;
+  submission_code: string;
+  sales_name: string;
+  pic_name: string;
+  campaign_name: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  status: string;
+  created_at: string;
+  device_info: string;
+  gps_lat: number;
+  gps_lng: number;
+  screenshot_download: boolean;
+  screenshot_register: boolean;
+  screenshot_rating: boolean;
+  fraud_flags: string[];
+  qc_notes: string;
+}
+
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [salesFilter, setSalesFilter] = React.useState<string>('all');
-  const [selectedSubmission, setSelectedSubmission] = React.useState<typeof mockSubmissions[0] | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
   const [view, setView] = React.useState<'submissions' | 'sales'>('submissions');
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [submissions, setSubmissions] = React.useState<Submission[]>([]);
 
-  const filteredSubmissions = mockSubmissions.filter(
+  // Fetch from API
+  React.useEffect(() => {
+    const fetchSubmissions = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const response = await fetch(`/api/submissions?${params}`);
+        const result = await response.json();
+
+        if (result.data) {
+          // Transform API data to match UI
+          const transformed = result.data.map((item: any) => ({
+            ...item,
+            id: item.submission_code,
+            customer_phone_masked: item.customer_phone_masked,
+            fraud_flags: item.fraud_flags || [],
+            qc_notes: item.qc_notes || 'Pending review',
+          }));
+          setSubmissions(transformed);
+        }
+      } catch (error) {
+        console.error('Failed to fetch submissions:', error);
+        // Fallback to mock data
+        setSubmissions(mockSubmissions as any);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSubmissions();
+  }, [statusFilter]);
+
+  const filteredSubmissions = submissions.filter(
     sub => (statusFilter === 'all' || sub.status === statusFilter) &&
-           (salesFilter === 'all' || sub.sales === salesFilter)
+           (salesFilter === 'all' || sub.sales_name === salesFilter)
   );
 
   const stats = {
-    total: mockSubmissions.length,
-    valid: mockSubmissions.filter(s => s.status === 'valid').length,
-    pending: mockSubmissions.filter(s => s.status === 'pending').length,
-    invalid: mockSubmissions.filter(s => s.status === 'invalid').length,
-    fraud: mockSubmissions.filter(s => s.status === 'fraud').length,
+    total: submissions.length,
+    valid: submissions.filter(s => s.status === 'valid').length,
+    pending: submissions.filter(s => s.status === 'pending').length,
+    invalid: submissions.filter(s => s.status === 'invalid').length,
+    fraud: submissions.filter(s => s.status === 'fraud').length,
   };
 
-  const validRate = Math.round((stats.valid / stats.total) * 100);
-  const fraudRate = ((stats.fraud / stats.total) * 100).toFixed(1);
+  const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
+  const fraudRate = stats.total > 0 ? ((stats.fraud / stats.total) * 100).toFixed(1) : '0';
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -372,57 +429,70 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSubmissions.map((sub, index) => (
-                      <tr
-                        key={sub.id}
-                        className={cn(
-                          'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
-                          sub.fraud_flags.length > 0 && 'bg-rose-50/50'
-                        )}
-                        onClick={() => setSelectedSubmission(sub)}
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-sm font-semibold text-blue-600">{sub.id}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                              <User size={14} className="text-slate-500" />
-                            </div>
-                            <span className="text-sm font-medium text-slate-900">{sub.sales}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{sub.customer.name}</p>
-                            <p className="text-xs text-slate-500">{sub.customer.phone}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign}</td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm text-slate-900">{sub.date}</p>
-                            <p className="text-xs text-slate-500">{sub.time}</p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
-                        <td className="px-4 py-3">
-                          {sub.fraud_flags.length > 0 ? (
-                            <div className="flex items-center gap-1">
-                              <Warning size={16} className="text-rose-500" />
-                              <span className="text-xs text-rose-600 font-medium">{sub.fraud_flags.length} flags</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
-                            <Eye size={18} className="text-slate-500" />
-                          </button>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                          Loading...
                         </td>
                       </tr>
-                    ))}
+                    ) : filteredSubmissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                          Tidak ada submission
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSubmissions.map((sub, index) => (
+                        <tr
+                          key={sub.submission_code}
+                          className={cn(
+                            'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
+                            (sub.fraud_flags?.length ?? 0) > 0 && 'bg-rose-50/50'
+                          )}
+                          onClick={() => setSelectedSubmission(sub)}
+                        >
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-sm font-semibold text-blue-600">{sub.submission_code}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+                                <User size={14} className="text-slate-500" />
+                              </div>
+                              <span className="text-sm font-medium text-slate-900">{sub.sales_name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">{sub.customer_name}</p>
+                              <p className="text-xs text-slate-500">{sub.customer_phone_masked || sub.customer_phone}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign_name}</td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="text-sm text-slate-900">{sub.created_at?.split('T')[0] || '-'}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
+                          <td className="px-4 py-3">
+                            {(sub.fraud_flags?.length ?? 0) > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <Warning size={16} className="text-rose-500" />
+                                <span className="text-xs text-rose-600 font-medium">{sub.fraud_flags.length} flags</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                              <Eye size={18} className="text-slate-500" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -525,7 +595,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Detail Submission</h2>
-                  <p className="text-slate-500 font-mono">{selectedSubmission.id}</p>
+                  <p className="text-slate-500 font-mono">{selectedSubmission.submission_code}</p>
                 </div>
                 {getStatusBadge(selectedSubmission.status)}
               </div>
@@ -534,19 +604,21 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 rounded-xl bg-slate-50">
                   <p className="text-xs text-slate-500 mb-1">Customer</p>
-                  <p className="font-semibold text-slate-900">{selectedSubmission.customer.name}</p>
+                  <p className="font-semibold text-slate-900">{selectedSubmission.customer_name}</p>
                   <p className="text-sm text-slate-600 flex items-center gap-1 mt-1">
-                    <Phone size={14} /> {selectedSubmission.customer.phone}
+                    <Phone size={14} /> {selectedSubmission.customer_phone_masked || selectedSubmission.customer_phone}
                   </p>
-                  <p className="text-sm text-slate-600 flex items-center gap-1">
-                    <Envelope size={14} /> {selectedSubmission.customer.email}
-                  </p>
+                  {selectedSubmission.customer_email && (
+                    <p className="text-sm text-slate-600 flex items-center gap-1">
+                      <Envelope size={14} /> {selectedSubmission.customer_email}
+                    </p>
+                  )}
                 </div>
                 <div className="p-4 rounded-xl bg-slate-50">
                   <p className="text-xs text-slate-500 mb-1">Sales Info</p>
-                  <p className="font-semibold text-slate-900">{selectedSubmission.sales}</p>
-                  <p className="text-sm text-slate-600">PIC: {selectedSubmission.pic}</p>
-                  <p className="text-sm text-slate-600">Campaign: {selectedSubmission.campaign}</p>
+                  <p className="font-semibold text-slate-900">{selectedSubmission.sales_name}</p>
+                  <p className="text-sm text-slate-600">PIC: {selectedSubmission.pic_name}</p>
+                  <p className="text-sm text-slate-600">Campaign: {selectedSubmission.campaign_name}</p>
                 </div>
               </div>
 
@@ -554,41 +626,31 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
                   <p className="text-xs text-blue-600 font-semibold mb-2">Device Fingerprint</p>
-                  <p className="text-sm font-mono text-slate-700">{selectedSubmission.device_fingerprint}</p>
+                  <p className="text-sm font-mono text-slate-700">{selectedSubmission.device_info || 'N/A'}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-purple-50 border border-purple-100">
                   <p className="text-xs text-purple-600 font-semibold mb-2">Location</p>
-                  <p className="text-sm text-slate-700">{selectedSubmission.location.city}</p>
-                  <p className="text-xs text-slate-500 font-mono">
-                    {selectedSubmission.location.lat}, {selectedSubmission.location.lng}
+                  <p className="text-sm text-slate-700">
+                    {selectedSubmission.gps_lat && selectedSubmission.gps_lng
+                      ? `${selectedSubmission.gps_lat.toFixed(4)}, ${selectedSubmission.gps_lng.toFixed(4)}`
+                      : 'N/A'}
                   </p>
                 </div>
               </div>
 
               {/* Fraud Flags */}
-              {selectedSubmission.fraud_flags.length > 0 && (
+              {(selectedSubmission.fraud_flags?.length ?? 0) > 0 && (
                 <div className="mb-6">
                   <p className="text-sm font-bold text-rose-700 mb-3 flex items-center gap-2">
                     <Shield size={18} weight="fill" /> Fraud Detection Flags
                   </p>
                   <div className="space-y-2">
-                    {selectedSubmission.fraud_flags.map((flag, i) => (
+                    {selectedSubmission.fraud_flags.map((flag: string, i: number) => (
                       <div key={i} className="p-3 rounded-lg bg-rose-50 border border-rose-200 flex items-start gap-3">
                         <Warning size={18} className="text-rose-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-rose-800">
-                            {flag.replace(/_/g, ' ')}
-                          </p>
-                          <p className="text-xs text-rose-600 mt-1">
-                            {flag === 'SAME_DEVICE_DIFFERENT_CUSTOMER' && 'Device ini sudah digunakan untuk customer lain'}
-                            {flag === 'SAME_PHONE_PREFIX' && 'Pola nomor telepon mencurigakan'}
-                            {flag === 'GPS_SUSPICIOUS' && 'Lokasi tidak sesuai dengan area kerja'}
-                            {flag === 'SCREENSHOT_MISSING' && 'Screenshot tidak lengkap'}
-                            {flag === 'INSUFFICIENT_EVIDENCE' && 'Bukti tidak cukup'}
-                            {flag === 'RATING_NOT_5_STARS' && 'Rating tidak 5 bintang'}
-                            {flag === 'DUPLICATE_LOCATION' && 'Pola lokasi duplikat'}
-                          </p>
-                        </div>
+                        <p className="text-sm font-semibold text-rose-800">
+                          {flag.replace(/_/g, ' ')}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -597,32 +659,57 @@ export default function DashboardPage() {
 
               {/* Screenshots */}
               <div className="mb-6">
-                <p className="text-sm font-bold text-slate-700 mb-3">Screenshots ({selectedSubmission.screenshots}/3)</p>
+                <p className="text-sm font-bold text-slate-700 mb-3">
+                  Screenshots ({[
+                    selectedSubmission.screenshot_download,
+                    selectedSubmission.screenshot_register,
+                    selectedSubmission.screenshot_rating
+                  ].filter(Boolean).length}/3)
+                </p>
                 <div className="grid grid-cols-3 gap-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'aspect-square rounded-xl flex items-center justify-center',
-                        i < selectedSubmission.screenshots
-                          ? 'bg-slate-100 border-2 border-dashed border-slate-300'
-                          : 'bg-slate-50 border-2 border-dashed border-slate-200 opacity-50'
-                      )}
-                    >
-                      {i < selectedSubmission.screenshots ? (
-                        <Camera size={24} className="text-slate-400" />
-                      ) : (
-                        <span className="text-xs text-slate-400">Missing</span>
-                      )}
-                    </div>
-                  ))}
+                  <div className={cn(
+                    'aspect-square rounded-xl flex items-center justify-center',
+                    selectedSubmission.screenshot_download
+                      ? 'bg-emerald-100 border-2 border-emerald-300'
+                      : 'bg-slate-50 border-2 border-dashed border-slate-200 opacity-50'
+                  )}>
+                    {selectedSubmission.screenshot_download ? (
+                      <CheckCircle size={24} className="text-emerald-500" />
+                    ) : (
+                      <span className="text-xs text-slate-400">Missing</span>
+                    )}
+                  </div>
+                  <div className={cn(
+                    'aspect-square rounded-xl flex items-center justify-center',
+                    selectedSubmission.screenshot_register
+                      ? 'bg-emerald-100 border-2 border-emerald-300'
+                      : 'bg-slate-50 border-2 border-dashed border-slate-200 opacity-50'
+                  )}>
+                    {selectedSubmission.screenshot_register ? (
+                      <CheckCircle size={24} className="text-emerald-500" />
+                    ) : (
+                      <span className="text-xs text-slate-400">Missing</span>
+                    )}
+                  </div>
+                  <div className={cn(
+                    'aspect-square rounded-xl flex items-center justify-center',
+                    selectedSubmission.screenshot_rating
+                      ? 'bg-emerald-100 border-2 border-emerald-300'
+                      : 'bg-slate-50 border-2 border-dashed border-slate-200 opacity-50'
+                  )}>
+                    {selectedSubmission.screenshot_rating ? (
+                      <CheckCircle size={24} className="text-emerald-500" />
+                    ) : (
+                      <span className="text-xs text-slate-400">Missing</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* QC Notes */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                 <p className="text-xs text-slate-500 font-semibold mb-1">QC Notes</p>
-                <p className="text-sm text-slate-700">{selectedSubmission.qc_notes}</p>
+                <p className="text-sm text-slate-700">{selectedSubmission.qc_notes || 'Pending review'}</p>
               </div>
 
               {/* Actions */}
