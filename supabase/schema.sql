@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 
   -- Device & Location
   device_info VARCHAR(255),
+  ip_address VARCHAR(50),
   gps_lat DECIMAL(10, 6),
   gps_lng DECIMAL(10, 6),
 

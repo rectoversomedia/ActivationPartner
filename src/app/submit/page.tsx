@@ -40,8 +40,10 @@ interface FormData {
   customer_email: string;
   customer_phone: string;
   device_info: string;
+  ip_address: string;
   gps_lat: string;
   gps_lng: string;
+  ip_address: string;
   screenshot_download: string | null;
   screenshot_register: string | null;
   screenshot_rating: string | null;
@@ -58,6 +60,7 @@ export default function SubmitPage() {
     customer_email: '',
     customer_phone: '',
     device_info: '',
+    ip_address: '',
     gps_lat: '',
     gps_lng: '',
     screenshot_download: null,
@@ -106,6 +109,20 @@ export default function SubmitPage() {
     }
   }, []);
 
+  // Get IP Address
+  React.useEffect(() => {
+    const getIP = async () => {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        updateFormData('ip_address', data.ip);
+      } catch {
+        // IP capture optional
+      }
+    };
+    getIP();
+  }, []);
+
   const generateCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = 'ACT-';
@@ -139,6 +156,7 @@ export default function SubmitPage() {
           customer_email: formData.customer_email,
           customer_phone: formData.customer_phone,
           device_info: formData.device_info,
+          ip_address: formData.ip_address,
           gps_lat: formData.gps_lat,
           gps_lng: formData.gps_lng,
           screenshot_download: !!formData.screenshot_download,
