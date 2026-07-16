@@ -1,3 +1,5 @@
+import './globals.css';
+
 export default function RootLayout({
   children,
 }: {
@@ -5,7 +7,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body className="bg-slate-50">{children}</body>
     </html>
   );
 }
