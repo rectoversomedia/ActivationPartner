@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       fraud_rules: typeof c.fraud_rules === 'string' ? JSON.parse(c.fraud_rules) : (c.fraud_rules || {}),
       allowed_regions: typeof c.allowed_regions === 'string' ? JSON.parse(c.allowed_regions) : (c.allowed_regions || []),
       required_evidence: typeof c.required_evidence === 'string' ? JSON.parse(c.required_evidence) : (c.required_evidence || []),
+      form_fields: typeof c.form_fields === 'string' ? JSON.parse(c.form_fields) : (c.form_fields || []),
     }));
 
     return NextResponse.json({ data: campaigns, total: count || 0 });
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and code are required' }, { status: 400 });
     }
 
-    // Ensure fraud_rules has default values
+    // Default fraud rules
     const fraud_rules = {
       require_screenshot_download: true,
       require_screenshot_register: true,
@@ -57,6 +58,21 @@ export async function POST(request: NextRequest) {
       ...body.fraud_rules,
     };
 
+    // Default evidence items
+    const required_evidence = body.required_evidence || [
+      { id: 'download', label: 'Screenshot Download', required: true },
+      { id: 'register', label: 'Screenshot Registrasi', required: true },
+      { id: 'rating', label: 'Screenshot Rating/Review', required: true },
+    ];
+
+    // Default form fields
+    const form_fields = body.form_fields || [
+      { id: 'sales', name: 'sales_id', label: 'Sales', type: 'select', required: true, source: 'sales' },
+      { id: 'pic', name: 'pic_id', label: 'PIC', type: 'select', required: true, source: 'pics' },
+      { id: 'customer_name', name: 'customer_name', label: 'Nama Customer', type: 'text', required: true },
+      { id: 'customer_phone', name: 'customer_phone', label: 'No. Telepon Customer', type: 'tel', required: true },
+    ];
+
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
@@ -65,7 +81,8 @@ export async function POST(request: NextRequest) {
         fee_per_activation: body.fee_per_activation || 5000,
         fraud_rules: JSON.stringify(fraud_rules),
         allowed_regions: JSON.stringify(body.allowed_regions || []),
-        required_evidence: JSON.stringify(body.required_evidence || ['download', 'register', 'rating']),
+        required_evidence: JSON.stringify(required_evidence),
+        form_fields: JSON.stringify(form_fields),
         is_active: body.is_active ?? true,
       })
       .select()

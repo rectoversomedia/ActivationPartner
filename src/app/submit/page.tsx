@@ -10,7 +10,24 @@ import {
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-// Interface for Campaign (with fraud rules)
+// Types
+interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'tel' | 'select' | 'checkbox';
+  placeholder?: string;
+  required: boolean;
+  options?: { label: string; value: string }[];
+  source?: 'sales' | 'pics' | 'campaigns' | 'custom';
+}
+
+interface EvidenceItem {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
 interface Campaign {
   id: string;
   name: string;
@@ -22,7 +39,8 @@ interface Campaign {
     require_screenshot_rating: boolean;
     require_gps: boolean;
   };
-  required_evidence: string[];
+  required_evidence: EvidenceItem[];
+  form_fields: FormField[];
   is_active: boolean;
 }
 
@@ -38,58 +56,34 @@ interface PIC {
   phone: string;
 }
 
-interface FormData {
-  date: string;
-  time: string;
-  sales_id: string;
-  pic_id: string;
-  campaign_id: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  device_info: string;
-  ip_address: string;
-  gps_lat: string;
-  gps_lng: string;
-  screenshot_download: File | null;
-  screenshot_register: File | null;
-  screenshot_rating: File | null;
-}
-
 export default function SubmitPage() {
-  // Master data from API
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [salesList, setSalesList] = React.useState<SalesPerson[]>([]);
   const [picsList, setPicsList] = React.useState<PIC[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = React.useState(true);
 
-  const [formData, setFormData] = React.useState<FormData>({
+  // Dynamic form data
+  const [formData, setFormData] = React.useState<Record<string, any>>({
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5),
-    sales_id: '',
-    pic_id: '',
-    campaign_id: '',
-    customer_name: '',
-    customer_email: '',
-    customer_phone: '',
     device_info: '',
     ip_address: '',
     gps_lat: '',
     gps_lng: '',
-    screenshot_download: null,
-    screenshot_register: null,
-    screenshot_rating: null,
   });
+
+  // Dynamic evidence files
+  const [evidenceFiles, setEvidenceFiles] = React.useState<Record<string, File | null>>({});
+  const [evidencePreviews, setEvidencePreviews] = React.useState<Record<string, string>>({});
+
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [submissionCode, setSubmissionCode] = React.useState('');
   const [showAdvanced, setShowAdvanced] = React.useState(false);
-  const [previews, setPreviews] = React.useState<Record<string, string>>({});
 
-  // Get selected campaign for fraud rules
   const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
 
-  // Fetch master data on mount
+  // Fetch master data
   React.useEffect(() => {
     const fetchMasterData = async () => {
       try {
@@ -102,7 +96,6 @@ export default function SubmitPage() {
         const masterData = await masterRes.json();
 
         if (campaignsData.data) {
-          // Filter only active campaigns
           setCampaigns(campaignsData.data.filter((c: Campaign) => c.is_active));
         }
 
@@ -123,30 +116,6 @@ export default function SubmitPage() {
     fetchMasterData();
   }, []);
 
-  const updateFormData = (field: keyof FormData, value: string | null | File) => {
-    setFormData(prev => ({ ...prev, [field]: value as any }));
-  };
-
-  // Handle file selection with preview
-  const handleFileChange = (field: 'screenshot_download' | 'screenshot_register' | 'screenshot_rating', file: File | null) => {
-    if (file) {
-      updateFormData(field, file);
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreviews(prev => ({ ...prev, [field]: e.target?.result as string }));
-      };
-      reader.readAsDataURL(file);
-    } else {
-      updateFormData(field, null);
-      setPreviews(prev => {
-        const newPreviews = { ...prev };
-        delete newPreviews[field];
-        return newPreviews;
-      });
-    }
-  };
-
   // Get device fingerprint
   React.useEffect(() => {
     const getDeviceInfo = () => {
@@ -160,7 +129,7 @@ export default function SubmitPage() {
         else if (ua.includes('OPPO')) device = 'Android-OPPO';
         else device = 'Android-Other';
       }
-      updateFormData('device_info', device);
+      setFormData(prev => ({ ...prev, device_info: device }));
     };
     getDeviceInfo();
   }, []);
@@ -170,74 +139,120 @@ export default function SubmitPage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          updateFormData('gps_lat', position.coords.latitude.toFixed(6));
-          updateFormData('gps_lng', position.coords.longitude.toFixed(6));
+          setFormData(prev => ({
+            ...prev,
+            gps_lat: position.coords.latitude.toFixed(6),
+            gps_lng: position.coords.longitude.toFixed(6),
+          }));
         },
-        () => {
-          // Silently fail - GPS is optional
-        }
+        () => {}
       );
     }
   }, []);
 
-  // Get IP Address
+  // Get IP
   React.useEffect(() => {
     const getIP = async () => {
       try {
         const response = await fetch('https://api.ipify.org?format=json');
         const data = await response.json();
-        updateFormData('ip_address', data.ip);
-      } catch {
-        // IP capture optional
-      }
+        setFormData(prev => ({ ...prev, ip_address: data.ip }));
+      } catch {}
     };
     getIP();
   }, []);
 
-  const generateCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = 'ACT-';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+  // Get field value options based on source
+  const getFieldOptions = (field: FormField) => {
+    if (field.source === 'sales') {
+      return salesList.map(s => ({ label: s.name, value: s.id }));
     }
-    return result;
+    if (field.source === 'pics') {
+      return picsList.map(p => ({ label: p.name, value: p.id }));
+    }
+    if (field.source === 'campaigns') {
+      return campaigns.map(c => ({ label: c.name, value: c.id }));
+    }
+    return field.options || [];
   };
 
+  // Handle file selection
+  const handleEvidenceChange = (evidenceId: string, file: File | null) => {
+    const newFiles = { ...evidenceFiles, [evidenceId]: file };
+    setEvidenceFiles(newFiles);
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setEvidencePreviews(prev => ({ ...prev, [evidenceId]: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setEvidencePreviews(prev => {
+        const newPreviews = { ...prev };
+        delete newPreviews[evidenceId];
+        return newPreviews;
+      });
+    }
+  };
+
+  // Check if form is valid
+  const isFormValid = () => {
+    if (!formData.date || !formData.time || !formData.campaign_id) return false;
+    if (!selectedCampaign) return false;
+
+    // Check required fields
+    for (const field of selectedCampaign.form_fields) {
+      if (field.required && !formData[field.name]) return false;
+    }
+
+    // Check required evidence
+    for (const evidence of selectedCampaign.required_evidence) {
+      if (evidence.required && !evidenceFiles[evidence.id]) return false;
+    }
+
+    return true;
+  };
+
+  // Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedCampaign) return;
+
     setIsSubmitting(true);
 
     try {
-      // Get selected names
-      const selectedSalesName = salesList.find(s => s.id === formData.sales_id)?.name || '';
-      const selectedPicName = picsList.find(p => p.id === formData.pic_id)?.name || '';
-      const selectedCampaignName = campaigns.find(c => c.id === formData.campaign_id)?.name || '';
-
-      // Create FormData for file upload
+      // Build form data
       const formDataToSend = new FormData();
-      formDataToSend.append('sales_id', formData.sales_id);
-      formDataToSend.append('sales_name', selectedSalesName);
-      formDataToSend.append('pic_id', formData.pic_id);
-      formDataToSend.append('pic_name', selectedPicName);
       formDataToSend.append('campaign_id', formData.campaign_id);
-      formDataToSend.append('campaign_name', selectedCampaignName);
-      formDataToSend.append('customer_name', formData.customer_name);
-      formDataToSend.append('customer_email', formData.customer_email);
-      formDataToSend.append('customer_phone', formData.customer_phone);
-      formDataToSend.append('device_info', formData.device_info);
-      formDataToSend.append('ip_address', formData.ip_address);
-      formDataToSend.append('gps_lat', formData.gps_lat);
-      formDataToSend.append('gps_lng', formData.gps_lng);
+      formDataToSend.append('campaign_name', selectedCampaign.name);
 
-      // Append files if they exist
-      if (formData.screenshot_download) {
-        formDataToSend.append('screenshot_download', formData.screenshot_download);
+      // Add all form fields
+      for (const field of selectedCampaign.form_fields) {
+        if (field.source === 'sales') {
+          const sales = salesList.find(s => s.id === formData[field.name]);
+          formDataToSend.append('sales_id', formData[field.name]);
+          formDataToSend.append('sales_name', sales?.name || '');
+        } else if (field.source === 'pics') {
+          const pic = picsList.find(p => p.id === formData[field.name]);
+          formDataToSend.append('pic_id', formData[field.name]);
+          formDataToSend.append('pic_name', pic?.name || '');
+        } else {
+          formDataToSend.append(field.name, formData[field.name] || '');
+        }
       }
-      if (formData.screenshot_register) {
-        formDataToSend.append('screenshot_register', formData.screenshot_register);
-      }
-      if (formData.screenshot_rating) {
-        formDataToSend.append('screenshot_rating', formData.screenshot_rating);
+
+      // Add device & location info
+      formDataToSend.append('device_info', formData.device_info || '');
+      formDataToSend.append('ip_address', formData.ip_address || '');
+      formDataToSend.append('gps_lat', formData.gps_lat || '');
+      formDataToSend.append('gps_lng', formData.gps_lng || '');
+
+      // Add evidence files
+      for (const evidence of selectedCampaign.required_evidence) {
+        if (evidenceFiles[evidence.id]) {
+          formDataToSend.append(`evidence_${evidence.id}`, evidenceFiles[evidence.id]);
+        }
       }
 
       const response = await fetch('/api/submissions', {
@@ -261,22 +276,24 @@ export default function SubmitPage() {
     }
   };
 
-  const isFormValid = formData.date && formData.time && formData.sales_id &&
-                      formData.pic_id && formData.campaign_id &&
-                      formData.customer_name && formData.customer_phone &&
-                      formData.screenshot_download &&
-                      formData.screenshot_register &&
-                      formData.screenshot_rating;
-
-
-  // Get selected names from API data
-  const selectedSales = salesList.find(s => s.id === formData.sales_id)?.name || '';
-  const selectedPic = picsList.find(p => p.id === formData.pic_id)?.name || '';
-  const selectedCampaignName = selectedCampaign?.name || '';
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().slice(0, 5),
+      campaign_id: '',
+      device_info: formData.device_info,
+      ip_address: formData.ip_address,
+      gps_lat: formData.gps_lat,
+      gps_lng: formData.gps_lng,
+    });
+    setEvidenceFiles({});
+    setEvidencePreviews({});
+  };
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header with Logo */}
+      {/* Header */}
       <header className="bg-white">
         <div className="max-w-md mx-auto px-4 pt-8 pb-4">
           <div className="flex flex-col items-center">
@@ -294,334 +311,231 @@ export default function SubmitPage() {
         </div>
       </header>
 
-      {/* Report Sales Title */}
       <div className="max-w-md mx-auto px-4 pb-6">
-        <h2 className="text-2xl font-bold text-slate-900 text-center">
-          Report Sales
-        </h2>
+        <h2 className="text-2xl font-bold text-slate-900 text-center">Report Sales</h2>
       </div>
 
       {/* Form */}
       {isLoadingMaster ? (
         <div className="max-w-md mx-auto px-4">
-          <Card><CardContent className="p-8 text-center">Loading data...</CardContent></Card>
+          <Card><CardContent className="p-8 text-center">Loading...</CardContent></Card>
         </div>
       ) : (
-      <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
-        <Card className="bg-white border border-slate-200 shadow-sm">
-          <CardContent className="p-6 space-y-5">
-            {/* Date & Time */}
-            <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
+          <Card className="bg-white border border-slate-200 shadow-sm">
+            <CardContent className="p-6 space-y-5">
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold flex items-center gap-2">
+                    <Calendar size={18} className="text-blue-500" />
+                    Date
+                  </Label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    className="border-slate-200 focus:border-blue-500 bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold flex items-center gap-2">
+                    <Clock size={18} className="text-purple-500" />
+                    Time
+                  </Label>
+                  <Input
+                    type="time"
+                    value={formData.time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                    className="border-slate-200 focus:border-blue-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Campaign Selection */}
               <div className="space-y-2">
                 <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                  <Calendar size={18} className="text-blue-500" />
-                  Date
+                  <Flag size={18} className="text-pink-500" />
+                  Campaign
                 </Label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => updateFormData('date', e.target.value)}
-                  className="border-slate-200 focus:border-blue-500 bg-white"
-                />
+                <select
+                  value={formData.campaign_id || ''}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, campaign_id: e.target.value }));
+                    // Reset evidence when campaign changes
+                    setEvidenceFiles({});
+                    setEvidencePreviews({});
+                  }}
+                  required
+                  className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
+                >
+                  <option value="">Pilih Campaign</option>
+                  {campaigns.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                  <Clock size={18} className="text-purple-500" />
-                  Time
-                </Label>
-                <Input
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) => updateFormData('time', e.target.value)}
-                  className="border-slate-200 focus:border-blue-500 bg-white"
-                />
-              </div>
-            </div>
 
-            {/* Sales Dropdown */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                <User size={18} className="text-amber-500" />
-                Sales
-              </Label>
-              <select
-                value={formData.sales_id}
-                onChange={(e) => updateFormData('sales_id', e.target.value)}
-                required
-                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
-              >
-                <option value="">Pilih Sales</option>
-                {salesList.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
+              {/* Dynamic Form Fields */}
+              {selectedCampaign && selectedCampaign.form_fields.map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <Label className="text-slate-700 font-semibold flex items-center gap-2">
+                    {field.type === 'select' ? <UserCircle size={18} className="text-emerald-500" /> : <User size={18} className="text-slate-500" />}
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </Label>
 
-            {/* PIC Dropdown */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                <UserCircle size={18} className="text-emerald-500" />
-                PIC
-              </Label>
-              <select
-                value={formData.pic_id}
-                onChange={(e) => updateFormData('pic_id', e.target.value)}
-                required
-                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
-              >
-                <option value="">Pilih PIC</option>
-                {picsList.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+                  {field.type === 'select' ? (
+                    <select
+                      value={formData[field.name] || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                      required={field.required}
+                      className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
+                    >
+                      <option value="">{field.placeholder || `Pilih ${field.label}`}</option>
+                      {getFieldOptions(field).map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  ) : field.type === 'checkbox' ? (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData[field.name] || false}
+                        onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.checked }))}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-slate-600">{field.placeholder || 'Ya'}</span>
+                    </label>
+                  ) : (
+                    <Input
+                      type={field.type}
+                      placeholder={field.placeholder}
+                      value={formData[field.name] || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                      required={field.required}
+                      className="border-slate-200 focus:border-blue-500 bg-white"
+                    />
+                  )}
+                </div>
+              ))}
 
-            {/* Campaign Dropdown */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                <Flag size={18} className="text-pink-500" />
-                Campaign
-              </Label>
-              <select
-                value={formData.campaign_id}
-                onChange={(e) => updateFormData('campaign_id', e.target.value)}
-                required
-                className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
-              >
-                <option value="">Pilih Campaign</option>
-                {campaigns.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+              {/* Dynamic Evidence Upload */}
+              {selectedCampaign && selectedCampaign.required_evidence.length > 0 && (
+                <>
+                  <div className="border-t border-slate-100 my-4" />
+                  <p className="text-sm font-bold text-slate-900">Bukti Screenshot</p>
 
-            {/* Divider */}
-            <div className="border-t border-slate-100 my-4" />
-            <p className="text-sm font-bold text-slate-900">Data Customer</p>
+                  <div className="space-y-3">
+                    {selectedCampaign.required_evidence.map((evidence) => (
+                      <div
+                        key={evidence.id}
+                        className={cn(
+                          'p-4 rounded-xl border-2 transition-all duration-200',
+                          evidenceFiles[evidence.id]
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-dashed border-slate-300'
+                        )}
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className={cn(
+                            'p-2 rounded-lg',
+                            evidenceFiles[evidence.id] ? 'bg-blue-500' : 'bg-slate-100'
+                          )}>
+                            <Camera size={20} className={evidenceFiles[evidence.id] ? 'text-white' : 'text-slate-500'} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-900">{evidence.label}</p>
+                            {evidence.required && <p className="text-xs text-red-500">Wajib</p>}
+                          </div>
+                        </div>
 
-            {/* Nama Customer */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold">Nama Customer</Label>
-              <Input
-                placeholder="Nama lengkap customer"
-                value={formData.customer_name}
-                onChange={(e) => updateFormData('customer_name', e.target.value)}
-                required
-                className="border-slate-200 focus:border-blue-500 bg-white"
-              />
-            </div>
-
-            {/* Email Customer */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                <Envelope size={18} className="text-blue-500" />
-                Email Customer
-              </Label>
-              <Input
-                type="email"
-                placeholder="email@domain.com"
-                value={formData.customer_email}
-                onChange={(e) => updateFormData('customer_email', e.target.value)}
-                className="border-slate-200 focus:border-blue-500 bg-white"
-              />
-            </div>
-
-            {/* No Tlp Customer */}
-            <div className="space-y-2">
-              <Label className="text-slate-700 font-semibold flex items-center gap-2">
-                <Phone size={18} className="text-green-500" />
-                No Tlp Customer
-              </Label>
-              <Input
-                type="tel"
-                placeholder="08xxxxxxxxxx"
-                value={formData.customer_phone}
-                onChange={(e) => updateFormData('customer_phone', e.target.value)}
-                required
-                className="border-slate-200 focus:border-blue-500 bg-white"
-              />
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-slate-100 my-4" />
-            <p className="text-sm font-bold text-slate-900">Bukti Screenshot</p>
-
-            {/* Screenshots */}
-            <div className="space-y-3">
-              {/* Download */}
-              <div
-                className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200',
-                  formData.screenshot_download
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300'
-                )}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={cn(
-                    'p-2 rounded-lg',
-                    formData.screenshot_download ? 'bg-blue-500' : 'bg-slate-100'
-                  )}>
-                    <Camera size={20} className={formData.screenshot_download ? 'text-white' : 'text-slate-500'} />
+                        {evidencePreviews[evidence.id] ? (
+                          <div className="relative rounded-lg overflow-hidden">
+                            <img src={evidencePreviews[evidence.id]} alt="Preview" className="w-full h-40 object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleEvidenceChange(evidence.id, null)}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
+                            <Upload size={24} className="text-slate-400 mb-2" />
+                            <span className="text-sm text-slate-500">Tap to upload</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleEvidenceChange(evidence.id, e.target.files?.[0] || null)}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900">Bukti Screenshot Download</p>
-                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
+                </>
+              )}
+
+              {/* Advanced Info */}
+              <div className="border-t border-slate-100 my-4" />
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+              >
+                <Fingerprint size={18} />
+                Device Info (Auto-captured)
+                <span className="text-xs text-slate-400 ml-auto">
+                  {showAdvanced ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {showAdvanced && (
+                <div className="p-4 rounded-xl bg-slate-50 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <DeviceMobile size={20} className="text-blue-500" />
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500">Device</p>
+                      <p className="text-sm font-medium text-slate-700">{formData.device_info || 'Detecting...'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MapPin size={20} className="text-purple-500" />
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500">GPS Location</p>
+                      <p className="text-sm font-medium text-slate-700">
+                        {formData.gps_lat && formData.gps_lng
+                          ? `${formData.gps_lat}, ${formData.gps_lng}`
+                          : 'Location unavailable'}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
 
-                {previews.screenshot_download ? (
-                  <div className="relative rounded-lg overflow-hidden">
-                    <img src={previews.screenshot_download} alt="Preview" className="w-full h-40 object-cover" />
-                    <button type="button" onClick={() => handleFileChange('screenshot_download', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
-                    <Upload size={24} className="text-slate-400 mb-2" />
-                    <span className="text-sm text-slate-500">Tap to upload</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_download', e.target.files?.[0] || null)} className="hidden" />
-                  </label>
-                )}
-              </div>
-
-              {/* Register */}
-              <div
-                className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200',
-                  formData.screenshot_register
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300'
-                )}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={cn(
-                    'p-2 rounded-lg',
-                    formData.screenshot_register ? 'bg-blue-500' : 'bg-slate-100'
-                  )}>
-                    <Camera size={20} className={formData.screenshot_register ? 'text-white' : 'text-slate-500'} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900">Bukti Screenshot Registrasi</p>
-                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
-                  </div>
-                </div>
-
-                {previews.screenshot_register ? (
-                  <div className="relative rounded-lg overflow-hidden">
-                    <img src={previews.screenshot_register} alt="Preview" className="w-full h-40 object-cover" />
-                    <button type="button" onClick={() => handleFileChange('screenshot_register', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
-                    <Upload size={24} className="text-slate-400 mb-2" />
-                    <span className="text-sm text-slate-500">Tap to upload</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_register', e.target.files?.[0] || null)} className="hidden" />
-                  </label>
-                )}
-              </div>
-
-              {/* Rating */}
-              <div
-                className={cn(
-                  'p-4 rounded-xl border-2 transition-all duration-200',
-                  formData.screenshot_rating
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-dashed border-slate-300'
-                )}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={cn(
-                    'p-2 rounded-lg',
-                    formData.screenshot_rating ? 'bg-blue-500' : 'bg-slate-100'
-                  )}>
-                    <Camera size={20} className={formData.screenshot_rating ? 'text-white' : 'text-slate-500'} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900">Bukti Screenshot Review & Rating</p>
-                    <p className="text-xs text-slate-500">PNG, JPG, HEIC - Max 5MB</p>
-                  </div>
-                </div>
-
-                {previews.screenshot_rating ? (
-                  <div className="relative rounded-lg overflow-hidden">
-                    <img src={previews.screenshot_rating} alt="Preview" className="w-full h-40 object-cover" />
-                    <button type="button" onClick={() => handleFileChange('screenshot_rating', null)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"><X size={16} /></button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
-                    <Upload size={24} className="text-slate-400 mb-2" />
-                    <span className="text-sm text-slate-500">Tap to upload</span>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange('screenshot_rating', e.target.files?.[0] || null)} className="hidden" />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* Advanced Info (Auto-captured) */}
-            <div className="border-t border-slate-100 my-4" />
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+          {/* Submit Button */}
+          <div className="mt-6">
+            <Button
+              type="submit"
+              disabled={!isFormValid()}
+              isLoading={isSubmitting}
+              className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
             >
-              <Fingerprint size={18} />
-              Device Info (Auto-captured)
-              <span className="text-xs text-slate-400 ml-auto">
-                {showAdvanced ? '▲' : '▼'}
-              </span>
-            </button>
+              {isSubmitting ? 'Mengirim...' : 'Submit Report'}
+            </Button>
+          </div>
 
-            {showAdvanced && (
-              <div className="p-4 rounded-xl bg-slate-50 space-y-3">
-                <div className="flex items-center gap-3">
-                  <DeviceMobile size={20} className="text-blue-500" />
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500">Device</p>
-                    <p className="text-sm font-medium text-slate-700">{formData.device_info || 'Detecting...'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin size={20} className="text-purple-500" />
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500">GPS Location</p>
-                    <p className="text-sm font-medium text-slate-700">
-                      {formData.gps_lat && formData.gps_lng
-                        ? `${formData.gps_lat}, ${formData.gps_lng}`
-                        : 'Location unavailable'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Clock size={20} className="text-emerald-500" />
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-500">Timestamp</p>
-                    <p className="text-sm font-medium text-slate-700">{formData.date} {formData.time}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Submit Button */}
-        <div className="mt-6">
-          <Button
-            type="submit"
-            disabled={!isFormValid}
-            isLoading={isSubmitting}
-            className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Mengirim...' : 'Submit Report'}
-          </Button>
-        </div>
-
-        {/* Dashboard Link */}
-        <div className="mt-4 text-center">
-          <Link href="/dashboard" className="text-sm text-slate-500 hover:text-blue-600 transition-colors">
-            Lihat Dashboard →
-          </Link>
-        </div>
-      </form>
+          <div className="mt-4 text-center">
+            <Link href="/dashboard" className="text-sm text-slate-500 hover:text-blue-600 transition-colors">
+              Lihat Dashboard →
+            </Link>
+          </div>
+        </form>
       )}
 
       {/* Success Modal */}
@@ -640,37 +554,10 @@ export default function SubmitPage() {
                 <p className="text-xl font-mono font-bold text-blue-600">{submissionCode}</p>
               </div>
 
-              <div className="p-4 rounded-xl bg-blue-50 text-left mb-6">
-                <p className="text-xs text-blue-600 font-semibold mb-2">Data Submitted:</p>
-                <div className="text-sm text-slate-600 space-y-1">
-                  <p>• Sales: {selectedSales}</p>
-                  <p>• PIC: {selectedPic}</p>
-                  <p>• Campaign: {selectedCampaignName}</p>
-                  <p>• Customer: {formData.customer_name}</p>
-                  <p>• Device: {formData.device_info}</p>
-                </div>
-              </div>
-
               <Button
                 onClick={() => {
                   setShowSuccess(false);
-                  setPreviews({});
-                  setFormData({
-                    date: new Date().toISOString().split('T')[0],
-                    time: new Date().toTimeString().slice(0, 5),
-                    sales_id: '',
-                    pic_id: '',
-                    campaign_id: '',
-                    customer_name: '',
-                    customer_email: '',
-                    customer_phone: '',
-                    device_info: formData.device_info,
-                    gps_lat: formData.gps_lat,
-                    gps_lng: formData.gps_lng,
-                    screenshot_download: null,
-                    screenshot_register: null,
-                    screenshot_rating: null,
-                  });
+                  resetForm();
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >

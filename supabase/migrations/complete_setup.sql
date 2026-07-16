@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
     fraud_rules JSONB DEFAULT '{}',
     allowed_regions JSONB DEFAULT '[]',
     required_evidence JSONB DEFAULT '["download", "register", "rating"]',
+    -- Custom form fields configuration (array of field definitions)
+    form_fields JSONB DEFAULT '[]',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

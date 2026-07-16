@@ -373,9 +373,9 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-4 py-3">
                               <div>
-                                <p className="text-sm font-medium text-slate-900">{sub.customer_name}</p>
-                                <p className="text-xs text-slate-500">{sub.customer_phone_masked || sub.customer_phone}</p>
-                              </div>
+                              <p className="text-sm font-medium text-slate-900">{sub.customer_name}</p>
+                              <p className="text-xs text-slate-500">{sub.customer_phone}</p>
+                            </div>
                             </td>
                             <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign_name}</td>
                             <td className="px-4 py-3">

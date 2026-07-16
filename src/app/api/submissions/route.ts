@@ -320,21 +320,23 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const formData = await request.formData();
 
-    const sales_id = formData.get("sales_id") as string;
-    const pic_id = formData.get("pic_id") as string;
     const campaign_id = formData.get("campaign_id") as string;
-    const customer_name = formData.get("customer_name") as string;
-    const customer_phone = formData.get("customer_phone") as string;
-    const customer_email = formData.get("customer_email") as string;
-    const sales_name = formData.get("sales_name") as string;
-    const pic_name = formData.get("pic_name") as string;
     const campaign_name = formData.get("campaign_name") as string;
     const device_info = formData.get("device_info") as string;
     const gps_lat = formData.get("gps_lat") as string;
     const gps_lng = formData.get("gps_lng") as string;
     const ip_address = formData.get("ip_address") as string;
 
-    if (!sales_id || !pic_id || !campaign_id || !customer_name || !customer_phone) {
+    // Get dynamic fields from form data
+    const sales_id = formData.get("sales_id") as string;
+    const sales_name = formData.get("sales_name") as string;
+    const pic_id = formData.get("pic_id") as string;
+    const pic_name = formData.get("pic_name") as string;
+    const customer_name = formData.get("customer_name") as string;
+    const customer_phone = formData.get("customer_phone") as string;
+    const customer_email = formData.get("customer_email") as string;
+
+    if (!campaign_id || !customer_name || !customer_phone) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -351,15 +353,15 @@ export async function POST(request: NextRequest) {
       phone = "+62" + phone.slice(1);
     }
 
-    // Fetch campaign fraud rules
+    // Fetch campaign fraud rules and config
     const { data: campaignData } = await supabase
       .from("campaigns")
-      .select("id, name, fraud_rules")
+      .select("id, name, fraud_rules, required_evidence")
       .eq("id", campaign_id)
       .single();
 
-    // Default advanced rules
-    const fraudRules = campaignData?.fraud_rules || {
+    // Parse fraud rules
+    let fraudRules = {
       require_screenshot_download: true,
       require_screenshot_register: true,
       require_screenshot_rating: true,
@@ -376,6 +378,20 @@ export async function POST(request: NextRequest) {
       check_submission_velocity: true,
       min_seconds_between_submissions: 30,
     };
+    if (campaignData?.fraud_rules) {
+      const storedRules = typeof campaignData.fraud_rules === 'string'
+        ? JSON.parse(campaignData.fraud_rules)
+        : campaignData.fraud_rules;
+      fraudRules = { ...fraudRules, ...storedRules };
+    }
+
+    // Parse required evidence
+    let requiredEvidence: { id: string; label: string; required: boolean }[] = [];
+    if (campaignData?.required_evidence) {
+      requiredEvidence = typeof campaignData.required_evidence === 'string'
+        ? JSON.parse(campaignData.required_evidence)
+        : campaignData.required_evidence;
+    }
 
     // Prepare submission data for fraud check
     const submissionData = {
@@ -387,9 +403,9 @@ export async function POST(request: NextRequest) {
       gps_lat: gps_lat || null,
       gps_lng: gps_lng || null,
       ip_address: ip_address || null,
-      screenshot_download: true,
-      screenshot_register: true,
-      screenshot_rating: true,
+      screenshot_download: requiredEvidence.some(e => e.id === 'download'),
+      screenshot_register: requiredEvidence.some(e => e.id === 'register'),
+      screenshot_rating: requiredEvidence.some(e => e.id === 'rating'),
     };
 
     // Run fraud detection
@@ -418,12 +434,12 @@ export async function POST(request: NextRequest) {
       .from("submissions")
       .insert({
         submission_code: submissionCode,
-        sales_id,
-        sales_name,
-        pic_id,
-        pic_name,
+        sales_id: sales_id || '',
+        sales_name: sales_name || '',
+        pic_id: pic_id || '',
+        pic_name: pic_name || '',
         campaign_id,
-        campaign_name,
+        campaign_name: campaign_name || '',
         customer_name,
         customer_email: customer_email || null,
         customer_phone: phone,
@@ -431,9 +447,10 @@ export async function POST(request: NextRequest) {
         device_info: device_info || null,
         gps_lat: gps_lat ? parseFloat(gps_lat) : null,
         gps_lng: gps_lng ? parseFloat(gps_lng) : null,
-        screenshot_download: true,
-        screenshot_register: true,
-        screenshot_rating: true,
+        // Dynamic evidence flags based on campaign config
+        screenshot_download: requiredEvidence.some((e: any) => e.id === 'download'),
+        screenshot_register: requiredEvidence.some((e: any) => e.id === 'register'),
+        screenshot_rating: requiredEvidence.some((e: any) => e.id === 'rating'),
         status,
         fraud_flags: fraudFlagsJson,
         qc_notes: fraudFlags.length > 0 ? fraudFlags.map(f => f.reason).join("; ") : null,
@@ -448,24 +465,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Upload files
+    // Upload dynamic evidence files
     const uploadedUrls: Record<string, string> = {};
 
-    const screenshotDownload = formData.get("screenshot_download") as File | null;
-    const screenshotRegister = formData.get("screenshot_register") as File | null;
-    const screenshotRating = formData.get("screenshot_rating") as File | null;
-
-    if (screenshotDownload) {
-      const url = await uploadFile(supabase, screenshotDownload, submissionCode, "download");
-      if (url) uploadedUrls.screenshot_download_url = url;
-    }
-    if (screenshotRegister) {
-      const url = await uploadFile(supabase, screenshotRegister, submissionCode, "register");
-      if (url) uploadedUrls.screenshot_register_url = url;
-    }
-    if (screenshotRating) {
-      const url = await uploadFile(supabase, screenshotRating, submissionCode, "rating");
-      if (url) uploadedUrls.screenshot_rating_url = url;
+    for (const evidence of requiredEvidence) {
+      const file = formData.get(`evidence_${evidence.id}`) as File | null;
+      if (file) {
+        const url = await uploadFile(supabase, file, submissionCode, evidence.id);
+        if (url) uploadedUrls[`screenshot_${evidence.id}_url`] = url;
+      }
     }
 
     // Update submission with URLs

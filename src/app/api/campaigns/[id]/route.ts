@@ -26,6 +26,7 @@ export async function GET(
       fraud_rules: typeof data.fraud_rules === 'string' ? JSON.parse(data.fraud_rules) : (data.fraud_rules || {}),
       allowed_regions: typeof data.allowed_regions === 'string' ? JSON.parse(data.allowed_regions) : (data.allowed_regions || []),
       required_evidence: typeof data.required_evidence === 'string' ? JSON.parse(data.required_evidence) : (data.required_evidence || []),
+      form_fields: typeof data.form_fields === 'string' ? JSON.parse(data.form_fields) : (data.form_fields || []),
     };
 
     return NextResponse.json({ data: campaign });
@@ -67,6 +68,7 @@ export async function PUT(
         fraud_rules: JSON.stringify(fraud_rules),
         allowed_regions: JSON.stringify(body.allowed_regions || []),
         required_evidence: JSON.stringify(body.required_evidence || []),
+        form_fields: JSON.stringify(body.form_fields || []),
         is_active: body.is_active,
         updated_at: new Date().toISOString(),
       })

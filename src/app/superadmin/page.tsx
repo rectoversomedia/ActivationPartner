@@ -8,12 +8,24 @@ import {
   CaretLeft, CaretRight, CheckCircle, XCircle, Warning, Eye,
   MapPin, DeviceMobile, Clock, Phone, Envelope, User,
   FloppyDisk, List, Buildings, UserCircle, Camera, Copy,
-  WifiHigh, Desktop, Timer, MapTrifold
+  WifiHigh, Desktop, Timer, MapTrifold, DotsSixVertical, TextT,
+  SignOut, UserCircleCheck
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 // Types
+interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'tel' | 'select' | 'checkbox';
+  placeholder?: string;
+  required: boolean;
+  options?: { label: string; value: string }[]; // for select type
+  source?: 'sales' | 'pics' | 'campaigns' | 'custom'; // data source
+}
+
 interface Campaign {
   id: string;
   name: string;
@@ -21,9 +33,16 @@ interface Campaign {
   fee_per_activation: number;
   fraud_rules: FraudRuleConfig;
   allowed_regions: Region[];
-  required_evidence: string[];
+  required_evidence: EvidenceItem[];
+  form_fields: FormField[];
   is_active: boolean;
   created_at: string;
+}
+
+interface EvidenceItem {
+  id: string;
+  label: string;
+  required: boolean;
 }
 
 interface FraudRuleConfig {
@@ -40,26 +59,26 @@ interface FraudRuleConfig {
 
   // Device/IP checks (Sales device fraud)
   check_duplicate_ip: boolean;
-  max_submissions_per_ip_per_hour: number; // 0 = unlimited
+  max_submissions_per_ip_per_hour: number;
 
   check_duplicate_device: boolean;
-  max_submissions_per_device_per_day: number; // 0 = unlimited
+  max_submissions_per_device_per_day: number;
 
   // Location checks
   check_gps_location: boolean;
-  check_duplicate_location: boolean; // Same GPS, different customers
-  max_same_location_per_day: number; // 0 = unlimited
+  check_duplicate_location: boolean;
+  max_same_location_per_day: number;
 
-  // Velocity checks (Timing patterns)
-  check_submission_velocity: boolean; // Too fast = robot
-  min_seconds_between_submissions: number; // 0 = unlimited
+  // Velocity checks
+  check_submission_velocity: boolean;
+  min_seconds_between_submissions: number;
 }
 
 interface Region {
   name: string;
   lat: number;
   lng: number;
-  radius: number; // in km
+  radius: number;
 }
 
 interface SalesPerson {
@@ -76,38 +95,59 @@ interface PIC {
   is_active: boolean;
 }
 
-// Default fraud rules (ADVANCED - semua aktif)
+// Default fraud rules
 const DEFAULT_FRAUD_RULES: FraudRuleConfig = {
-  // Evidence requirements
   require_screenshot_download: true,
   require_screenshot_register: true,
   require_screenshot_rating: true,
   require_gps: true,
-
-  // Duplicate checks (Customer data)
   check_duplicate_phone: true,
   check_duplicate_name: true,
   check_duplicate_email: true,
-
-  // Device/IP checks
   check_duplicate_ip: true,
-  max_submissions_per_ip_per_hour: 5, // Max 5 submission per IP per jam
-
+  max_submissions_per_ip_per_hour: 5,
   check_duplicate_device: true,
-  max_submissions_per_device_per_day: 20, // Max 20 submission per device per hari
-
-  // Location checks
-  check_gps_location: false, // By default off (koordinat bisa beda-beda)
+  max_submissions_per_device_per_day: 20,
+  check_gps_location: false,
   check_duplicate_location: true,
-  max_same_location_per_day: 10, // Max 10 submission di lokasi yang sama per hari
-
-  // Velocity checks
+  max_same_location_per_day: 10,
   check_submission_velocity: true,
-  min_seconds_between_submissions: 30, // Min 30 detik antar submission
+  min_seconds_between_submissions: 30,
 };
+
+// Default evidence items
+const DEFAULT_EVIDENCE: EvidenceItem[] = [
+  { id: 'download', label: 'Screenshot Download', required: true },
+  { id: 'register', label: 'Screenshot Registrasi', required: true },
+  { id: 'rating', label: 'Screenshot Rating/Review', required: true },
+];
+
+// Default form fields for new campaigns
+const DEFAULT_FORM_FIELDS: FormField[] = [
+  { id: 'sales', name: 'sales_id', label: 'Sales', type: 'select', required: true, source: 'sales', placeholder: 'Pilih Sales' },
+  { id: 'pic', name: 'pic_id', label: 'PIC', type: 'select', required: true, source: 'pics', placeholder: 'Pilih PIC' },
+  { id: 'customer_name', name: 'customer_name', label: 'Nama Customer', type: 'text', required: true, placeholder: 'Nama lengkap customer' },
+  { id: 'customer_email', name: 'customer_email', label: 'Email Customer', type: 'email', required: false, placeholder: 'email@domain.com' },
+  { id: 'customer_phone', name: 'customer_phone', label: 'No. Telepon Customer', type: 'tel', required: true, placeholder: '08xxxxxxxxxx' },
+];
+
+// Field type options
+const FIELD_TYPES = [
+  { value: 'text', label: 'Text Input' },
+  { value: 'email', label: 'Email Input' },
+  { value: 'tel', label: 'Phone Input' },
+  { value: 'select', label: 'Dropdown Select' },
+  { value: 'checkbox', label: 'Checkbox' },
+];
 
 // Tab types
 type TabType = 'campaigns' | 'sales' | 'pics' | 'settings';
+
+interface User {
+  email: string;
+  role: string;
+  name: string;
+}
 
 export default function SuperAdminPage() {
   // State
@@ -116,6 +156,7 @@ export default function SuperAdminPage() {
   const [salesList, setSalesList] = React.useState<SalesPerson[]>([]);
   const [picsList, setPicsList] = React.useState<PIC[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [editingCampaign, setEditingCampaign] = React.useState<Campaign | null>(null);
   const [editingSales, setEditingSales] = React.useState<SalesPerson | null>(null);
   const [editingPic, setEditingPic] = React.useState<PIC>(null as any);
@@ -126,7 +167,29 @@ export default function SuperAdminPage() {
   // Load data
   React.useEffect(() => {
     loadData();
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        setCurrentUser(data.user);
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -178,7 +241,8 @@ export default function SuperAdminPage() {
     fee_per_activation: 5000,
     fraud_rules: { ...DEFAULT_FRAUD_RULES },
     allowed_regions: [],
-    required_evidence: ['download', 'register', 'rating'],
+    required_evidence: [...DEFAULT_EVIDENCE],
+    form_fields: [...DEFAULT_FORM_FIELDS],
     is_active: true,
     created_at: new Date().toISOString(),
   });
@@ -319,13 +383,26 @@ export default function SuperAdminPage() {
             <p className="text-sm text-slate-500">Pengaturan Campaign & Master Data</p>
           </div>
 
-          {/* Back to Dashboard */}
-          <div className="flex justify-center">
+          {/* User Info & Logout */}
+          <div className="flex justify-between items-center">
             <Link href="/dashboard">
               <Button variant="outline" size="sm">
                 <CaretLeft size={16} className="mr-1" /> Dashboard
               </Button>
             </Link>
+
+            {currentUser && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100">
+                  <UserCircleCheck size={18} className="text-blue-600" />
+                  <span className="text-sm font-medium text-slate-700">{currentUser.name}</span>
+                  <span className="text-xs text-slate-500">({currentUser.role})</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleLogout} className="text-red-600 hover:bg-red-50">
+                  <SignOut size={16} className="mr-1" /> Logout
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -411,18 +488,20 @@ export default function SuperAdminPage() {
                               )}
                             </div>
 
-                            {/* Evidence Required */}
+                            {/* Evidence Required - Dynamic */}
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Evidence:</span>
+                              {(campaign.required_evidence || []).map((evidence: EvidenceItem, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs">{evidence.label}</Badge>
+                              ))}
+                            </div>
+
+                            {/* Form Fields Summary */}
                             <div className="flex flex-wrap gap-2">
-                              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Required Evidence:</span>
-                              {campaign.required_evidence?.includes('download') && (
-                                <Badge variant="outline" className="text-xs">Download</Badge>
-                              )}
-                              {campaign.required_evidence?.includes('register') && (
-                                <Badge variant="outline" className="text-xs">Register</Badge>
-                              )}
-                              {campaign.required_evidence?.includes('rating') && (
-                                <Badge variant="outline" className="text-xs">Rating</Badge>
-                              )}
+                              <span className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded">Fields:</span>
+                              {(campaign.form_fields || []).map((field: FormField, i: number) => (
+                                <Badge key={i} variant="outline" className="text-xs bg-purple-50 text-purple-700">{field.label}</Badge>
+                              ))}
                             </div>
                           </div>
 
@@ -848,58 +927,165 @@ export default function SuperAdminPage() {
                       </div>
                     </div>
 
-                    {/* Required Evidence */}
+                    {/* Required Evidence - Dynamic */}
                     <div className="border-t pt-4">
                       <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                         <Camera size={18} className="text-blue-500" />
                         Required Evidence (Screenshot)
                       </h3>
 
-                      <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.required_evidence?.includes('download')}
-                            onChange={(e) => {
-                              const newEvidence = e.target.checked
-                                ? [...(editingCampaign.required_evidence || []), 'download']
-                                : (editingCampaign.required_evidence || []).filter((x: string) => x !== 'download');
-                              setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
-                            }}
-                            className="rounded"
-                          />
-                          Screenshot Download
-                        </label>
+                      <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+                        {(editingCampaign.required_evidence || []).map((evidence: EvidenceItem, index: number) => (
+                          <div key={evidence.id || index} className="flex items-center gap-3 p-2 bg-white rounded">
+                            <DotsSixVertical size={16} className="text-slate-400 cursor-grab" />
+                            <input
+                              type="checkbox"
+                              checked={evidence.required}
+                              onChange={(e) => {
+                                const newEvidence = [...(editingCampaign.required_evidence || [])];
+                                newEvidence[index] = { ...evidence, required: e.target.checked };
+                                setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+                              }}
+                              className="rounded"
+                            />
+                            <input
+                              type="text"
+                              value={evidence.label}
+                              onChange={(e) => {
+                                const newEvidence = [...(editingCampaign.required_evidence || [])];
+                                newEvidence[index] = { ...evidence, label: e.target.value };
+                                setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+                              }}
+                              className="flex-1 px-3 py-1 border border-slate-200 rounded text-sm"
+                              placeholder="Evidence label..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newEvidence = (editingCampaign.required_evidence || []).filter((_: EvidenceItem, i: number) => i !== index);
+                                setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+                              }}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <Trash size={16} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newEvidence = [...(editingCampaign.required_evidence || []), {
+                              id: `evidence_${Date.now()}`,
+                              label: 'New Evidence',
+                              required: true
+                            }];
+                            setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+                          }}
+                          className="w-full p-2 border-2 border-dashed border-blue-300 rounded text-blue-600 text-sm font-medium hover:bg-blue-50 transition-colors"
+                        >
+                          <Plus size={16} className="inline mr-1" /> Tambah Evidence
+                        </button>
+                      </div>
+                    </div>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.required_evidence?.includes('register')}
-                            onChange={(e) => {
-                              const newEvidence = e.target.checked
-                                ? [...(editingCampaign.required_evidence || []), 'register']
-                                : (editingCampaign.required_evidence || []).filter((x: string) => x !== 'register');
-                              setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
-                            }}
-                            className="rounded"
-                          />
-                          Screenshot Registrasi
-                        </label>
+                    {/* Form Fields - Dynamic */}
+                    <div className="border-t pt-4">
+                      <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                        <TextT size={18} className="text-purple-500" />
+                        Form Fields (Custom Input)
+                      </h3>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.required_evidence?.includes('rating')}
-                            onChange={(e) => {
-                              const newEvidence = e.target.checked
-                                ? [...(editingCampaign.required_evidence || []), 'rating']
-                                : (editingCampaign.required_evidence || []).filter((x: string) => x !== 'rating');
-                              setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
-                            }}
-                            className="rounded"
-                          />
-                          Screenshot Rating/Review
-                        </label>
+                      <div className="bg-purple-50 p-4 rounded-lg space-y-2">
+                        {(editingCampaign.form_fields || []).map((field: FormField, index: number) => (
+                          <div key={field.id || index} className="p-3 bg-white rounded-lg space-y-2">
+                            <div className="flex items-center gap-2">
+                              <DotsSixVertical size={16} className="text-slate-400 cursor-grab" />
+                              <select
+                                value={field.type}
+                                onChange={(e) => {
+                                  const newFields = [...(editingCampaign.form_fields || [])];
+                                  newFields[index] = { ...field, type: e.target.value as FormField['type'] };
+                                  setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                                }}
+                                className="px-2 py-1 border border-slate-200 rounded text-sm"
+                              >
+                                {FIELD_TYPES.map(t => (
+                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                value={field.label}
+                                onChange={(e) => {
+                                  const newFields = [...(editingCampaign.form_fields || [])];
+                                  newFields[index] = { ...field, label: e.target.value, name: e.target.value.toLowerCase().replace(/\s+/g, '_') };
+                                  setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                                }}
+                                className="flex-1 px-3 py-1 border border-slate-200 rounded text-sm"
+                                placeholder="Field label..."
+                              />
+                              <label className="flex items-center gap-1 text-xs text-slate-500 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={field.required}
+                                  onChange={(e) => {
+                                    const newFields = [...(editingCampaign.form_fields || [])];
+                                    newFields[index] = { ...field, required: e.target.checked };
+                                    setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                                  }}
+                                  className="rounded"
+                                />
+                                Wajib
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newFields = (editingCampaign.form_fields || []).filter((_: FormField, i: number) => i !== index);
+                                  setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </div>
+                            {field.type === 'select' && (
+                              <div className="pl-6">
+                                <input
+                                  type="text"
+                                  value={field.options?.map(o => o.label).join(', ') || ''}
+                                  onChange={(e) => {
+                                    const newFields = [...(editingCampaign.form_fields || [])];
+                                    const labels = e.target.value.split(',').map(l => l.trim()).filter(Boolean);
+                                    newFields[index] = {
+                                      ...field,
+                                      options: labels.map(l => ({ label: l, value: l.toLowerCase().replace(/\s+/g, '_') }))
+                                    };
+                                    setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                                  }}
+                                  className="w-full px-3 py-1 border border-slate-200 rounded text-sm"
+                                  placeholder="Options (comma separated): Option 1, Option 2, Option 3"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFields = [...(editingCampaign.form_fields || []), {
+                              id: `field_${Date.now()}`,
+                              name: `custom_field_${(editingCampaign.form_fields || []).length + 1}`,
+                              label: 'Custom Field',
+                              type: 'text' as const,
+                              required: false,
+                              placeholder: ''
+                            }];
+                            setEditingCampaign({ ...editingCampaign, form_fields: newFields });
+                          }}
+                          className="w-full p-2 border-2 border-dashed border-purple-300 rounded text-purple-600 text-sm font-medium hover:bg-purple-50 transition-colors"
+                        >
+                          <Plus size={16} className="inline mr-1" /> Tambah Field
+                        </button>
                       </div>
                     </div>
                   </div>
