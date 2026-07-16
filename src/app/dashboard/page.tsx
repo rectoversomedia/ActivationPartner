@@ -150,9 +150,20 @@ interface Submission {
   screenshot_download: boolean;
   screenshot_register: boolean;
   screenshot_rating: boolean;
-  fraud_flags: string[];
+  fraud_flags: string;
   qc_notes: string;
 }
+
+// Parse fraud flags from JSON string
+const parseFraudFlags = (flagsJson: string | string[]): { flag: string; reason: string; severity: string }[] => {
+  if (Array.isArray(flagsJson)) return flagsJson as any;
+  if (!flagsJson) return [];
+  try {
+    return JSON.parse(flagsJson);
+  } catch {
+    return [];
+  }
+};
 
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
@@ -174,19 +185,10 @@ export default function DashboardPage() {
         const result = await response.json();
 
         if (result.data) {
-          // Transform API data to match UI
-          const transformed = result.data.map((item: any) => ({
-            ...item,
-            id: item.submission_code,
-            customer_phone_masked: item.customer_phone_masked,
-            fraud_flags: item.fraud_flags || [],
-            qc_notes: item.qc_notes || 'Pending review',
-          }));
-          setSubmissions(transformed);
+          setSubmissions(result.data);
         }
       } catch (error) {
         console.error('Failed to fetch submissions:', error);
-        // Fallback to mock data
         setSubmissions(mockSubmissions as any);
       } finally {
         setIsLoading(false);
@@ -234,13 +236,14 @@ export default function DashboardPage() {
         <div className="max-w-4xl mx-auto px-4 py-6">
           {/* Logo & Title - Centered */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-16 h-16 mb-4">
+            <div className="w-[200px] h-auto mb-4">
               <Image
                 src="/Logo Rectoverso.png"
                 alt="RECTOVERSO"
-                width={64}
-                height={64}
-                className="w-full h-full object-contain"
+                width={200}
+                height={80}
+                className="w-full h-auto object-contain"
+                priority
               />
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
@@ -441,12 +444,14 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredSubmissions.map((sub, index) => (
+                      filteredSubmissions.map((sub, index) => {
+                        const fraudFlags = parseFraudFlags(sub.fraud_flags);
+                        return (
                         <tr
                           key={sub.submission_code}
                           className={cn(
                             'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
-                            (sub.fraud_flags?.length ?? 0) > 0 && 'bg-rose-50/50'
+                            fraudFlags.length > 0 && 'bg-rose-50/50'
                           )}
                           onClick={() => setSelectedSubmission(sub)}
                         >
@@ -475,10 +480,10 @@ export default function DashboardPage() {
                           </td>
                           <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
                           <td className="px-4 py-3">
-                            {(sub.fraud_flags?.length ?? 0) > 0 ? (
+                            {parseFraudFlags(sub.fraud_flags).length > 0 ? (
                               <div className="flex items-center gap-1">
                                 <Warning size={16} className="text-rose-500" />
-                                <span className="text-xs text-rose-600 font-medium">{sub.fraud_flags.length} flags</span>
+                                <span className="text-xs text-rose-600 font-medium">{parseFraudFlags(sub.fraud_flags).length} flags</span>
                               </div>
                             ) : (
                               <span className="text-xs text-slate-400">-</span>
@@ -490,8 +495,7 @@ export default function DashboardPage() {
                             </button>
                           </td>
                         </tr>
-                      ))
-                    )}
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -638,18 +642,33 @@ export default function DashboardPage() {
               </div>
 
               {/* Fraud Flags */}
-              {(selectedSubmission.fraud_flags?.length ?? 0) > 0 && (
+              {parseFraudFlags(selectedSubmission.fraud_flags).length > 0 && (
                 <div className="mb-6">
                   <p className="text-sm font-bold text-rose-700 mb-3 flex items-center gap-2">
-                    <Shield size={18} weight="fill" /> Fraud Detection Flags
+                    <Shield size={18} weight="fill" /> Alasan Flag
                   </p>
                   <div className="space-y-2">
-                    {selectedSubmission.fraud_flags.map((flag: string, i: number) => (
+                    {parseFraudFlags(selectedSubmission.fraud_flags).map((flag: any, i: number) => (
                       <div key={i} className="p-3 rounded-lg bg-rose-50 border border-rose-200 flex items-start gap-3">
-                        <Warning size={18} className="text-rose-600 mt-0.5" />
-                        <p className="text-sm font-semibold text-rose-800">
-                          {flag.replace(/_/g, ' ')}
-                        </p>
+                        <span className={cn(
+                          'w-3 h-3 rounded-full mt-1 flex-shrink-0',
+                          flag.severity === 'critical' ? 'bg-rose-600' :
+                          flag.severity === 'error' ? 'bg-red-500' : 'bg-amber-500'
+                        )} />
+                        <div>
+                          <p className="text-sm font-semibold text-rose-800">
+                            {flag.reason || flag.flag?.replace(/_/g, ' ')}
+                          </p>
+                          {flag.severity && (
+                            <span className={cn(
+                              'text-xs px-2 py-0.5 rounded-full mt-1 inline-block',
+                              flag.severity === 'critical' ? 'bg-rose-200 text-rose-800' :
+                              flag.severity === 'error' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            )}>
+                              {flag.severity}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
