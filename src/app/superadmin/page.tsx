@@ -7,7 +7,8 @@ import {
   Gear, Users, Flag, Shield, Check, X, Plus, Trash, Pencil,
   CaretLeft, CaretRight, CheckCircle, XCircle, Warning, Eye,
   MapPin, DeviceMobile, Clock, Phone, Envelope, User,
-  FloppyDisk, List, Buildings, UserCircle
+  FloppyDisk, List, Buildings, UserCircle, Camera, Copy,
+  WifiHigh, Desktop, Timer, MapTrifold
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -26,14 +27,32 @@ interface Campaign {
 }
 
 interface FraudRuleConfig {
+  // Evidence requirements
   require_screenshot_download: boolean;
   require_screenshot_register: boolean;
   require_screenshot_rating: boolean;
   require_gps: boolean;
+
+  // Duplicate checks (Customer data)
   check_duplicate_phone: boolean;
   check_duplicate_name: boolean;
   check_duplicate_email: boolean;
+
+  // Device/IP checks (Sales device fraud)
+  check_duplicate_ip: boolean;
+  max_submissions_per_ip_per_hour: number; // 0 = unlimited
+
+  check_duplicate_device: boolean;
+  max_submissions_per_device_per_day: number; // 0 = unlimited
+
+  // Location checks
   check_gps_location: boolean;
+  check_duplicate_location: boolean; // Same GPS, different customers
+  max_same_location_per_day: number; // 0 = unlimited
+
+  // Velocity checks (Timing patterns)
+  check_submission_velocity: boolean; // Too fast = robot
+  min_seconds_between_submissions: number; // 0 = unlimited
 }
 
 interface Region {
@@ -57,16 +76,34 @@ interface PIC {
   is_active: boolean;
 }
 
-// Default fraud rules
+// Default fraud rules (ADVANCED - semua aktif)
 const DEFAULT_FRAUD_RULES: FraudRuleConfig = {
+  // Evidence requirements
   require_screenshot_download: true,
   require_screenshot_register: true,
   require_screenshot_rating: true,
   require_gps: true,
+
+  // Duplicate checks (Customer data)
   check_duplicate_phone: true,
   check_duplicate_name: true,
   check_duplicate_email: true,
-  check_gps_location: false,
+
+  // Device/IP checks
+  check_duplicate_ip: true,
+  max_submissions_per_ip_per_hour: 5, // Max 5 submission per IP per jam
+
+  check_duplicate_device: true,
+  max_submissions_per_device_per_day: 20, // Max 20 submission per device per hari
+
+  // Location checks
+  check_gps_location: false, // By default off (koordinat bisa beda-beda)
+  check_duplicate_location: true,
+  max_same_location_per_day: 10, // Max 10 submission di lokasi yang sama per hari
+
+  // Velocity checks
+  check_submission_velocity: true,
+  min_seconds_between_submissions: 30, // Min 30 detik antar submission
 };
 
 // Tab types
@@ -579,91 +616,235 @@ export default function SuperAdminPage() {
                     <div className="border-t pt-4">
                       <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                         <Shield size={18} className="text-red-500" />
-                        Fraud Detection Rules
+                        Fraud Detection Rules (Advanced)
                       </h3>
 
-                      <div className="space-y-3 bg-red-50 p-4 rounded-lg">
-                        <p className="text-sm text-slate-600 mb-3">Aktifkan rules yang ingin di-check:</p>
+                      {/* CUSTOMER DATA CHECKS */}
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">📋 Customer Data Checks</p>
+                        <div className="space-y-2 bg-red-50 p-3 rounded-lg">
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_phone ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_phone: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-slate-900">Duplicate Phone</p>
+                              <p className="text-xs text-slate-500">Block jika nomor HP sudah terdaftar</p>
+                            </div>
+                          </label>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.fraud_rules?.check_duplicate_phone ?? true}
-                            onChange={(e) => setEditingCampaign({
-                              ...editingCampaign,
-                              fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_phone: e.target.checked }
-                            })}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-slate-900">Duplicate Phone Check</p>
-                            <p className="text-xs text-slate-500">Block jika nomor HP sudah terdaftar</p>
-                          </div>
-                        </label>
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_name ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_name: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-slate-900">Duplicate Name</p>
+                              <p className="text-xs text-slate-500">Block jika nama customer sudah terdaftar</p>
+                            </div>
+                          </label>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.fraud_rules?.check_duplicate_name ?? true}
-                            onChange={(e) => setEditingCampaign({
-                              ...editingCampaign,
-                              fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_name: e.target.checked }
-                            })}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-slate-900">Duplicate Name Check</p>
-                            <p className="text-xs text-slate-500">Block jika nama customer sudah terdaftar</p>
-                          </div>
-                        </label>
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_email ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_email: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-slate-900">Duplicate Email</p>
+                              <p className="text-xs text-slate-500">Block jika email sudah terdaftar</p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.fraud_rules?.check_duplicate_email ?? true}
-                            onChange={(e) => setEditingCampaign({
-                              ...editingCampaign,
-                              fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_email: e.target.checked }
-                            })}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-slate-900">Duplicate Email Check</p>
-                            <p className="text-xs text-slate-500">Block jika email sudah terdaftar</p>
-                          </div>
-                        </label>
+                      {/* DEVICE/IP CHECKS */}
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">📱 Device & IP Checks</p>
+                        <div className="space-y-2 bg-orange-50 p-3 rounded-lg">
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_ip ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_ip: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">Duplicate IP</p>
+                              <p className="text-xs text-slate-500">Block jika IP address sama</p>
+                            </div>
+                          </label>
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.fraud_rules?.require_gps ?? true}
-                            onChange={(e) => setEditingCampaign({
-                              ...editingCampaign,
-                              fraud_rules: { ...editingCampaign.fraud_rules, require_gps: e.target.checked }
-                            })}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-slate-900">Require GPS Location</p>
-                            <p className="text-xs text-slate-500">Submission wajib memiliki data GPS</p>
-                          </div>
-                        </label>
+                          {editingCampaign.fraud_rules?.check_duplicate_ip && (
+                            <div className="pl-6 bg-white rounded p-2">
+                              <label className="text-xs text-slate-600">Max submissions per IP per jam:</label>
+                              <Input
+                                type="number"
+                                value={editingCampaign.fraud_rules?.max_submissions_per_ip_per_hour ?? 5}
+                                onChange={(e) => setEditingCampaign({
+                                  ...editingCampaign,
+                                  fraud_rules: { ...editingCampaign.fraud_rules, max_submissions_per_ip_per_hour: parseInt(e.target.value) || 0 }
+                                })}
+                                className="mt-1"
+                              />
+                            </div>
+                          )}
 
-                        <label className="flex items-center gap-3 p-2 bg-white rounded">
-                          <input
-                            type="checkbox"
-                            checked={editingCampaign.fraud_rules?.check_gps_location ?? false}
-                            onChange={(e) => setEditingCampaign({
-                              ...editingCampaign,
-                              fraud_rules: { ...editingCampaign.fraud_rules, check_gps_location: e.target.checked }
-                            })}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-slate-900">GPS Location Validation</p>
-                            <p className="text-xs text-slate-500">Cek apakah GPS dalam area yang diizinkan</p>
-                          </div>
-                        </label>
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_device ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_device: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">Duplicate Device</p>
+                              <p className="text-xs text-slate-500">Block jika device sama digunakan banyak customer</p>
+                            </div>
+                          </label>
+
+                          {editingCampaign.fraud_rules?.check_duplicate_device && (
+                            <div className="pl-6 bg-white rounded p-2">
+                              <label className="text-xs text-slate-600">Max submissions per device per hari:</label>
+                              <Input
+                                type="number"
+                                value={editingCampaign.fraud_rules?.max_submissions_per_device_per_day ?? 20}
+                                onChange={(e) => setEditingCampaign({
+                                  ...editingCampaign,
+                                  fraud_rules: { ...editingCampaign.fraud_rules, max_submissions_per_device_per_day: parseInt(e.target.value) || 0 }
+                                })}
+                                className="mt-1"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* LOCATION CHECKS */}
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">📍 Location Checks</p>
+                        <div className="space-y-2 bg-purple-50 p-3 rounded-lg">
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_duplicate_location ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_location: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">Duplicate Location</p>
+                              <p className="text-xs text-slate-500">Block jika lokasi GPS sama untuk customer berbeda</p>
+                            </div>
+                          </label>
+
+                          {editingCampaign.fraud_rules?.check_duplicate_location && (
+                            <div className="pl-6 bg-white rounded p-2">
+                              <label className="text-xs text-slate-600">Max submissions di lokasi sama per hari:</label>
+                              <Input
+                                type="number"
+                                value={editingCampaign.fraud_rules?.max_same_location_per_day ?? 10}
+                                onChange={(e) => setEditingCampaign({
+                                  ...editingCampaign,
+                                  fraud_rules: { ...editingCampaign.fraud_rules, max_same_location_per_day: parseInt(e.target.value) || 0 }
+                                })}
+                                className="mt-1"
+                              />
+                            </div>
+                          )}
+
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_gps_location ?? false}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_gps_location: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-slate-900">GPS Location Validation</p>
+                              <p className="text-xs text-slate-500">Cek apakah GPS dalam area yang diizinkan</p>
+                            </div>
+                          </label>
+
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.require_gps ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, require_gps: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div>
+                              <p className="font-medium text-slate-900">Require GPS</p>
+                              <p className="text-xs text-slate-500">Submission wajib memiliki data GPS</p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* VELOCITY CHECKS */}
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">⏱️ Velocity Checks (Robot Detection)</p>
+                        <div className="space-y-2 bg-yellow-50 p-3 rounded-lg">
+                          <label className="flex items-center gap-3 p-2 bg-white rounded">
+                            <input
+                              type="checkbox"
+                              checked={editingCampaign.fraud_rules?.check_submission_velocity ?? true}
+                              onChange={(e) => setEditingCampaign({
+                                ...editingCampaign,
+                                fraud_rules: { ...editingCampaign.fraud_rules, check_submission_velocity: e.target.checked }
+                              })}
+                              className="rounded"
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">Submission Velocity</p>
+                              <p className="text-xs text-slate-500">Block jika submit terlalu cepat (robot)</p>
+                            </div>
+                          </label>
+
+                          {editingCampaign.fraud_rules?.check_submission_velocity && (
+                            <div className="pl-6 bg-white rounded p-2">
+                              <label className="text-xs text-slate-600">Min detik antar submission:</label>
+                              <Input
+                                type="number"
+                                value={editingCampaign.fraud_rules?.min_seconds_between_submissions ?? 30}
+                                onChange={(e) => setEditingCampaign({
+                                  ...editingCampaign,
+                                  fraud_rules: { ...editingCampaign.fraud_rules, min_seconds_between_submissions: parseInt(e.target.value) || 0 }
+                                })}
+                                className="mt-1"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
