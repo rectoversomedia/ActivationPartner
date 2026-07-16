@@ -6,7 +6,8 @@ import Image from 'next/image';
 import {
   Funnel, CheckCircle, XCircle, Clock, Warning, Eye,
   User, Calendar, Flag, Phone, Envelope, Camera, ArrowRight,
-  ChartBar, Users, Shield, FileText, Plus
+  ChartBar, Users, Shield, FileText, Plus, ShieldCheck,
+  ShieldAlert, ShieldSlash, Question
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 // Real data with fraud detection
 
 type StatusFilter = 'all' | 'valid' | 'pending' | 'invalid' | 'fraud';
+type FraudFilter = 'all' | 'allow' | 'review' | 'flag' | 'block';
 
 interface Submission {
   id: string;
@@ -33,6 +35,9 @@ interface Submission {
   screenshot_register: boolean;
   screenshot_rating: boolean;
   fraud_flags: string;
+  fraud_score: number;
+  fraud_decision: string;
+  fraud_reasons: string;
   qc_notes: string;
 }
 
@@ -47,11 +52,36 @@ const parseFraudFlags = (flagsJson: string | string[]): { flag: string; reason: 
   }
 };
 
+// Get fraud decision badge
+const getFraudDecisionBadge = (decision: string) => {
+  switch (decision) {
+    case 'allow':
+      return <Badge className="bg-emerald-100 text-emerald-700"><ShieldCheck size={14} weight="fill" className="mr-1" />Allow</Badge>;
+    case 'review':
+      return <Badge className="bg-blue-100 text-blue-700"><Question size={14} weight="fill" className="mr-1" />Review</Badge>;
+    case 'flag':
+      return <Badge className="bg-amber-100 text-amber-700"><ShieldAlert size={14} weight="fill" className="mr-1" />Flag</Badge>;
+    case 'block':
+      return <Badge className="bg-red-100 text-red-700"><ShieldSlash size={14} weight="fill" className="mr-1" />Block</Badge>;
+    default:
+      return <Badge className="bg-slate-100 text-slate-600">-</Badge>;
+  }
+};
+
+// Get risk level color
+const getRiskColor = (score: number) => {
+  if (score >= 75) return 'text-red-600';
+  if (score >= 50) return 'text-orange-600';
+  if (score >= 25) return 'text-amber-600';
+  return 'text-emerald-600';
+};
+
 export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [fraudFilter, setFraudFilter] = React.useState<FraudFilter>('all');
   const [salesFilter, setSalesFilter] = React.useState<string>('all');
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
-  const [view, setView] = React.useState<'submissions' | 'sales'>('submissions');
+  const [view, setView] = React.useState<'submissions' | 'sales' | 'fraud'>('submissions');
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
   const [salesStats, setSalesStats] = React.useState<{name: string; total: number; valid: number; invalid: number; fraud: number; pending: number; rate: number}[]>([]);
@@ -106,6 +136,7 @@ export default function DashboardPage() {
 
   const filteredSubmissions = submissions.filter(
     sub => (statusFilter === 'all' || sub.status === statusFilter) &&
+           (fraudFilter === 'all' || sub.fraud_decision === fraudFilter) &&
            (salesFilter === 'all' || sub.sales_name === salesFilter)
   );
 
@@ -115,6 +146,12 @@ export default function DashboardPage() {
     pending: submissions.filter(s => s.status === 'pending').length,
     invalid: submissions.filter(s => s.status === 'invalid').length,
     fraud: submissions.filter(s => s.status === 'fraud').length,
+    fraudScoreAvg: submissions.length > 0
+      ? Math.round(submissions.reduce((acc, s) => acc + (s.fraud_score || 0), 0) / submissions.length)
+      : 0,
+    fraudReview: submissions.filter(s => s.fraud_decision === 'review').length,
+    fraudFlag: submissions.filter(s => s.fraud_decision === 'flag').length,
+    fraudBlock: submissions.filter(s => s.fraud_decision === 'block').length,
   };
 
   const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
@@ -253,6 +290,32 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+          <Card className="bg-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-100">
+                  <ShieldCheck size={20} weight="fill" className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-600">{stats.fraudScoreAvg}</p>
+                  <p className="text-xs text-slate-500">Avg Score</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-100">
+                  <Warning size={20} weight="fill" className="text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">{stats.fraudReview + stats.fraudFlag}</p>
+                  <p className="text-xs text-slate-500">Review/Flag</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* View Toggle */}
@@ -275,6 +338,20 @@ export default function DashboardPage() {
               )}
             >
               Per Sales
+            </button>
+            <button
+              onClick={() => setView('fraud')}
+              className={cn(
+                'px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1',
+                view === 'fraud' ? 'bg-rose-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+              )}
+            >
+              <Shield size={16} /> Fraud
+              {(stats.fraudReview + stats.fraudFlag) > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-rose-200 text-rose-700">
+                  {stats.fraudReview + stats.fraudFlag}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -329,10 +406,10 @@ export default function DashboardPage() {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kode</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Sales</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Campaign</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">QC</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Fraud Score</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Decision</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider"></th>
                     </tr>
                   </thead>
@@ -351,12 +428,16 @@ export default function DashboardPage() {
                       </tr>
                     ) : filteredSubmissions.map((sub) => {
                         const fraudFlags = parseFraudFlags(sub.fraud_flags);
+                        const fraudScore = sub.fraud_score || 0;
                         return (
                           <tr
                             key={sub.submission_code}
                             className={cn(
                               'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
-                              fraudFlags.length > 0 && 'bg-rose-50/50'
+                              sub.fraud_decision === 'block' && 'bg-red-50' ||
+                              sub.fraud_decision === 'flag' && 'bg-amber-50' ||
+                              sub.fraud_decision === 'review' && 'bg-blue-50' ||
+                              fraudFlags.length > 0 && 'bg-rose-50/30'
                             )}
                             onClick={() => setSelectedSubmission(sub)}
                           >
@@ -377,7 +458,6 @@ export default function DashboardPage() {
                               <p className="text-xs text-slate-500">{sub.customer_phone}</p>
                             </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign_name}</td>
                             <td className="px-4 py-3">
                               <div>
                                 <p className="text-sm text-slate-900">{sub.created_at?.split('T')[0] || '-'}</p>
@@ -385,14 +465,29 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
                             <td className="px-4 py-3">
-                              {fraudFlags.length > 0 ? (
-                                <div className="flex items-center gap-1">
-                                  <Warning size={16} className="text-rose-500" />
-                                  <span className="text-xs text-rose-600 font-medium">{fraudFlags.length} flags</span>
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  'w-10 h-6 rounded-full relative overflow-hidden',
+                                  fraudScore >= 75 ? 'bg-red-200' :
+                                  fraudScore >= 50 ? 'bg-orange-200' :
+                                  fraudScore >= 25 ? 'bg-amber-200' :
+                                  'bg-emerald-100'
+                                )}>
+                                  <div className={cn(
+                                    'absolute inset-y-0 left-0 bg-red-500',
+                                    fraudScore >= 75 ? 'w-full' :
+                                    fraudScore >= 50 ? 'w-3/4' :
+                                    fraudScore >= 25 ? 'w-1/2' :
+                                    'w-1/4'
+                                  )} />
                                 </div>
-                              ) : (
-                                <span className="text-xs text-slate-400">-</span>
-                              )}
+                                <span className={cn('text-sm font-semibold', getRiskColor(fraudScore))}>
+                                  {fraudScore}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {getFraudDecisionBadge(sub.fraud_decision || 'allow')}
                             </td>
                             <td className="px-4 py-3">
                               <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
@@ -580,6 +675,57 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+
+              {/* Fraud Score & Decision */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Shield size={16} className="text-blue-500" /> Fraud Detection
+                  </p>
+                  {getFraudDecisionBadge(selectedSubmission.fraud_decision || 'allow')}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500">Fraud Score</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div className={cn(
+                          'h-full rounded-full',
+                          (selectedSubmission.fraud_score || 0) >= 75 ? 'bg-red-500' :
+                          (selectedSubmission.fraud_score || 0) >= 50 ? 'bg-orange-500' :
+                          (selectedSubmission.fraud_score || 0) >= 25 ? 'bg-amber-500' :
+                          'bg-emerald-500'
+                        )} style={{ width: `${selectedSubmission.fraud_score || 0}%` }} />
+                      </div>
+                      <span className={cn('font-bold', getRiskColor(selectedSubmission.fraud_score || 0))}>
+                        {selectedSubmission.fraud_score || 0}/100
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Device</p>
+                    <p className="text-sm font-medium text-slate-700">{selectedSubmission.device_info || 'N/A'}</p>
+                  </div>
+                </div>
+                {fraudFlags.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <p className="text-xs text-slate-500 mb-2">Fraud Flags ({fraudFlags.length}):</p>
+                    <div className="space-y-1">
+                      {fraudFlags.map((flag: any, i: number) => (
+                        <div key={i} className={cn(
+                          'p-2 rounded text-xs',
+                          flag.severity === 'critical' ? 'bg-red-50 text-red-700' :
+                          flag.severity === 'high' ? 'bg-orange-50 text-orange-700' :
+                          flag.severity === 'medium' ? 'bg-amber-50 text-amber-700' :
+                          'bg-slate-50 text-slate-600'
+                        )}>
+                          <span className="font-semibold">{flag.flag}: </span>{flag.reason}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Screenshots */}
               <div className="mb-6">
