@@ -5,10 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
-  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner
+  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner, ShieldCheck
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { generateDeviceFingerprint, isSuspiciousDevice } from '@/lib/fraud/fingerprint';
+import { analyzeScreenshot } from '@/lib/fraud/screenshot-analyzer';
 
 // Types
 interface FormField {
@@ -75,13 +77,48 @@ export default function SubmitPage() {
   // Dynamic evidence files
   const [evidenceFiles, setEvidenceFiles] = React.useState<Record<string, File | null>>({});
   const [evidencePreviews, setEvidencePreviews] = React.useState<Record<string, string>>({});
+  const [evidenceAnalysis, setEvidenceAnalysis] = React.useState<Record<string, any>>({});
 
+  // Device fingerprint & behavioral data
+  const [deviceFingerprintHash, setDeviceFingerprintHash] = React.useState('');
+  const [isSuspicious, setIsSuspicious] = React.useState(false);
+  const [suspiciousReasons, setSuspiciousReasons] = React.useState<string[]>([]);
+  const [timeOnPageStart, setTimeOnPageStart] = React.useState<number>(Date.now());
+  const [fieldTimings, setFieldTimings] = React.useState<Record<string, number>>({});
+  const [typingSpeeds, setTypingSpeeds] = React.useState<number[]>([]);
+  const [currentFieldStart, setCurrentFieldStart] = React.useState<number>(Date.now());
+
+  // Submission result
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
   const [submissionCode, setSubmissionCode] = React.useState('');
   const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const [fraudResult, setFraudResult] = React.useState<any>(null);
 
   const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
+
+  // Collect device fingerprint
+  React.useEffect(() => {
+    const collectFingerprint = async () => {
+      try {
+        const fingerprint = await generateDeviceFingerprint();
+        setDeviceFingerprintHash(fingerprint.hash);
+        setFormData(prev => ({ ...prev, device_info: fingerprint.deviceInfo }));
+
+        const suspicious = isSuspiciousDevice();
+        setIsSuspicious(suspicious.suspicious);
+        setSuspiciousReasons(suspicious.reasons);
+      } catch (error) {
+        console.error('Failed to collect fingerprint:', error);
+      }
+    };
+    collectFingerprint();
+  }, []);
+
+  // Track time on page
+  React.useEffect(() => {
+    setTimeOnPageStart(Date.now());
+  }, []);
 
   // Fetch master data
   React.useEffect(() => {
@@ -176,15 +213,60 @@ export default function SubmitPage() {
     return field.options || [];
   };
 
-  // Handle file selection
-  const handleEvidenceChange = (evidenceId: string, file: File | null) => {
+  // Handle file selection with screenshot analysis
+  const handleEvidenceChange = async (evidenceId: string, file: File | null) => {
     const newFiles = { ...evidenceFiles, [evidenceId]: file };
     setEvidenceFiles(newFiles);
 
     if (file) {
+      // Preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setEvidencePreviews(prev => ({ ...prev, [evidenceId]: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+
+      // Analyze screenshot
+      try {
+        const analysis = await analyzeScreenshot(file);
+        setEvidenceAnalysis(prev => ({ ...prev, [evidenceId]: analysis }));
+      } catch (error) {
+        console.error('Screenshot analysis failed:', error);
+      }
+    } else {
+      setEvidencePreviews(prev => {
+        const newPreviews = { ...prev };
+        delete newPreviews[evidenceId];
+        return newPreviews;
+      });
+      setEvidenceAnalysis(prev => {
+        const newAnalysis = { ...prev };
+        delete newAnalysis[evidenceId];
+        return newAnalysis;
+      });
+    }
+  };
+
+  // Track field focus for timing
+  const handleFieldFocus = (fieldName: string) => {
+    const now = Date.now();
+    const prevTiming = fieldTimings[fieldName] || now;
+    const timeOnField = now - prevTiming;
+
+    // Track typing speed (if there's previous timing)
+    if (timeOnField > 0 && timeOnField < 5000) { // Less than 5 seconds = possible typing
+      const fieldValue = formData[fieldName] || '';
+      if (fieldValue.length > 0) {
+        const charsPerSecond = fieldValue.length / (timeOnField / 1000);
+        if (charsPerSecond > 1 && charsPerSecond < 50) { // Reasonable typing speed
+          setTypingSpeeds(prev => [...prev, charsPerSecond]);
+        }
+      }
+    }
+
+    setCurrentFieldStart(now);
+    setFieldTimings(prev => ({ ...prev, [fieldName]: now }));
+  };
       };
       reader.readAsDataURL(file);
     } else {
@@ -242,11 +324,17 @@ export default function SubmitPage() {
         }
       }
 
-      // Add device & location info
+      // Add device fingerprint & behavioral data
       formDataToSend.append('device_info', formData.device_info || '');
+      formDataToSend.append('device_fingerprint_hash', deviceFingerprintHash || '');
       formDataToSend.append('ip_address', formData.ip_address || '');
       formDataToSend.append('gps_lat', formData.gps_lat || '');
       formDataToSend.append('gps_lng', formData.gps_lng || '');
+
+      // Add behavioral data
+      const timeOnPageMs = Date.now() - timeOnPageStart;
+      formDataToSend.append('time_on_page_ms', timeOnPageMs.toString());
+      formDataToSend.append('typing_speeds', JSON.stringify(typingSpeeds));
 
       // Add evidence files
       for (const evidence of selectedCampaign.required_evidence) {
@@ -267,6 +355,12 @@ export default function SubmitPage() {
       }
 
       setSubmissionCode(result.submissionCode);
+      setFraudResult({
+        score: result.fraudScore,
+        decision: result.fraudDecision,
+        riskLevel: result.fraudRiskLevel,
+        flags: result.fraudFlags,
+      });
       setShowSuccess(true);
     } catch (error) {
       console.error('Submit error:', error);
@@ -389,6 +483,7 @@ export default function SubmitPage() {
                     <select
                       value={formData[field.name] || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                      onFocus={() => handleFieldFocus(field.name)}
                       required={field.required}
                       className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
                     >
@@ -403,6 +498,7 @@ export default function SubmitPage() {
                         type="checkbox"
                         checked={formData[field.name] || false}
                         onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.checked }))}
+                        onFocus={() => handleFieldFocus(field.name)}
                         className="rounded"
                       />
                       <span className="text-sm text-slate-600">{field.placeholder || 'Ya'}</span>
@@ -413,6 +509,7 @@ export default function SubmitPage() {
                       placeholder={field.placeholder}
                       value={formData[field.name] || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
+                      onFocus={() => handleFieldFocus(field.name)}
                       required={field.required}
                       className="border-slate-200 focus:border-blue-500 bg-white"
                     />
@@ -541,27 +638,76 @@ export default function SubmitPage() {
       {/* Success Modal */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="bg-white max-w-sm w-full shadow-xl">
+          <Card className="bg-white max-w-md w-full shadow-xl">
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
                 <Check size={32} className="text-emerald-600" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">Berhasil!</h2>
-              <p className="text-slate-500 mb-6">Submission berhasil disimpan</p>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">
+                {fraudResult?.decision === 'block' ? 'Submission Ditolak!' : 'Berhasil!'}
+              </h2>
+              <p className="text-slate-500 mb-4">
+                {fraudResult?.decision === 'block'
+                  ? 'Submission terblokir karena terdeteksi fraud'
+                  : 'Submission berhasil disimpan'}
+              </p>
 
               <div className="p-4 rounded-xl bg-slate-50 mb-6">
                 <p className="text-xs text-slate-500 mb-1">Kode Aktivasi</p>
                 <p className="text-xl font-mono font-bold text-blue-600">{submissionCode}</p>
               </div>
 
+              {/* Fraud Result */}
+              {fraudResult && (
+                <div className="p-4 rounded-xl bg-slate-50 mb-6 text-left">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <ShieldCheck size={16} className="text-blue-500" />
+                      Fraud Check Result
+                    </p>
+                    <span className={cn(
+                      'px-2 py-1 rounded-full text-xs font-bold',
+                      fraudResult.riskLevel === 'low' ? 'bg-emerald-100 text-emerald-700' :
+                      fraudResult.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
+                      fraudResult.riskLevel === 'high' ? 'bg-orange-100 text-orange-700' :
+                      'bg-red-100 text-red-700'
+                    )}>
+                      {fraudResult.riskLevel.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Fraud Score</span>
+                      <span className="font-semibold">{fraudResult.score}/100</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Decision</span>
+                      <span className="font-semibold">{fraudResult.decision}</span>
+                    </div>
+                    {fraudResult.flags && fraudResult.flags.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-200">
+                        <p className="text-xs text-slate-500 mb-1">Flags:</p>
+                        {fraudResult.flags.slice(0, 3).map((flag: any, i: number) => (
+                          <p key={i} className="text-xs text-slate-600">• {flag.reason}</p>
+                        ))}
+                        {fraudResult.flags.length > 3 && (
+                          <p className="text-xs text-slate-500">+{fraudResult.flags.length - 3} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={() => {
                   setShowSuccess(false);
+                  setFraudResult(null);
                   resetForm();
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                Submit Lagi
+                {fraudResult?.decision === 'block' ? 'Tutup' : 'Submit Lagi'}
               </Button>
             </CardContent>
           </Card>
