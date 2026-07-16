@@ -5,30 +5,38 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
-  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload
+  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-// Master data (from admin)
-const masterData = {
-  sales: [
-    { id: '1', name: 'Ahmad Fauzi' },
-    { id: '2', name: 'Budi Santoso' },
-    { id: '3', name: 'Citra Dewi' },
-    { id: '4', name: 'Dian Pratama' },
-    { id: '5', name: 'Eko Wijaya' },
-  ],
-  pics: [
-    { id: '1', name: 'Budi Santoso' },
-    { id: '2', name: 'Ani Wijaya' },
-    { id: '3', name: 'Dewi Lestari' },
-  ],
-  campaigns: [
-    { id: '1', name: 'FIFGO Campaign' },
-    { id: '2', name: 'Rectoverso Promo' },
-  ],
-};
+// Interface for Campaign (with fraud rules)
+interface Campaign {
+  id: string;
+  name: string;
+  code: string;
+  fee_per_activation: number;
+  fraud_rules: {
+    require_screenshot_download: boolean;
+    require_screenshot_register: boolean;
+    require_screenshot_rating: boolean;
+    require_gps: boolean;
+  };
+  required_evidence: string[];
+  is_active: boolean;
+}
+
+interface SalesPerson {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+interface PIC {
+  id: string;
+  name: string;
+  phone: string;
+}
 
 interface FormData {
   date: string;
@@ -49,6 +57,12 @@ interface FormData {
 }
 
 export default function SubmitPage() {
+  // Master data from API
+  const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
+  const [salesList, setSalesList] = React.useState<SalesPerson[]>([]);
+  const [picsList, setPicsList] = React.useState<PIC[]>([]);
+  const [isLoadingMaster, setIsLoadingMaster] = React.useState(true);
+
   const [formData, setFormData] = React.useState<FormData>({
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5),
@@ -71,6 +85,43 @@ export default function SubmitPage() {
   const [submissionCode, setSubmissionCode] = React.useState('');
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [previews, setPreviews] = React.useState<Record<string, string>>({});
+
+  // Get selected campaign for fraud rules
+  const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
+
+  // Fetch master data on mount
+  React.useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const [campaignsRes, masterRes] = await Promise.all([
+          fetch('/api/campaigns'),
+          fetch('/api/master-data'),
+        ]);
+
+        const campaignsData = await campaignsRes.json();
+        const masterData = await masterRes.json();
+
+        if (campaignsData.data) {
+          // Filter only active campaigns
+          setCampaigns(campaignsData.data.filter((c: Campaign) => c.is_active));
+        }
+
+        if (masterData.sales) {
+          setSalesList(masterData.sales.filter((s: SalesPerson) => s.is_active));
+        }
+
+        if (masterData.pics) {
+          setPicsList(masterData.pics.filter((p: PIC) => p.is_active));
+        }
+      } catch (error) {
+        console.error('Failed to fetch master data:', error);
+      } finally {
+        setIsLoadingMaster(false);
+      }
+    };
+
+    fetchMasterData();
+  }, []);
 
   const updateFormData = (field: keyof FormData, value: string | null | File) => {
     setFormData(prev => ({ ...prev, [field]: value as any }));
@@ -217,10 +268,11 @@ export default function SubmitPage() {
                       formData.screenshot_register &&
                       formData.screenshot_rating;
 
-  // Get selected names
-  const selectedSales = masterData.sales.find(s => s.id === formData.sales_id)?.name || '';
-  const selectedPic = masterData.pics.find(p => p.id === formData.pic_id)?.name || '';
-  const selectedCampaign = masterData.campaigns.find(c => c.id === formData.campaign_id)?.name || '';
+
+  // Get selected names from API data
+  const selectedSales = salesList.find(s => s.id === formData.sales_id)?.name || '';
+  const selectedPic = picsList.find(p => p.id === formData.pic_id)?.name || '';
+  const selectedCampaignName = selectedCampaign?.name || '';
 
   return (
     <div className="min-h-screen bg-white">
@@ -250,6 +302,11 @@ export default function SubmitPage() {
       </div>
 
       {/* Form */}
+      {isLoadingMaster ? (
+        <div className="max-w-md mx-auto px-4">
+          <Card><CardContent className="p-8 text-center">Loading data...</CardContent></Card>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
         <Card className="bg-white border border-slate-200 shadow-sm">
           <CardContent className="p-6 space-y-5">
@@ -294,7 +351,7 @@ export default function SubmitPage() {
                 className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
               >
                 <option value="">Pilih Sales</option>
-                {masterData.sales.map(s => (
+                {salesList.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
@@ -313,7 +370,7 @@ export default function SubmitPage() {
                 className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
               >
                 <option value="">Pilih PIC</option>
-                {masterData.pics.map(p => (
+                {picsList.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -332,7 +389,7 @@ export default function SubmitPage() {
                 className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
               >
                 <option value="">Pilih Campaign</option>
-                {masterData.campaigns.map(c => (
+                {campaigns.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
@@ -565,6 +622,7 @@ export default function SubmitPage() {
           </Link>
         </div>
       </form>
+      )}
 
       {/* Success Modal */}
       {showSuccess && (
@@ -587,7 +645,7 @@ export default function SubmitPage() {
                 <div className="text-sm text-slate-600 space-y-1">
                   <p>• Sales: {selectedSales}</p>
                   <p>• PIC: {selectedPic}</p>
-                  <p>• Campaign: {selectedCampaign}</p>
+                  <p>• Campaign: {selectedCampaignName}</p>
                   <p>• Customer: {formData.customer_name}</p>
                   <p>• Device: {formData.device_info}</p>
                 </div>

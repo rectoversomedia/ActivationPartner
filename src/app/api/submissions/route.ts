@@ -9,23 +9,32 @@ interface FraudCheck {
 }
 
 const FRAUD_REASONS: Record<string, string> = {
-  SAME_DEVICE_MULTIPLE_CUSTOMERS: 'Perangkat yang sama digunakan untuk beberapa customer berbeda',
-  SAME_PHONE_PREFIX: 'Pola nomor telepon mencurigakan (prefix sama)',
-  GPS_SUSPICIOUS: 'Lokasi GPS mencurigakan atau tidak valid',
-  SCREENSHOT_MISSING: 'Screenshot bukti tidak lengkap',
-  INSUFFICIENT_EVIDENCE: 'Bukti aktivasi tidak cukup',
-  GPS_OUTSIDE_CITY: 'Lokasi GPS di luar kota yang ditentukan',
+  // Duplicate detection (ACTUAL FRAUD)
   DUPLICATE_PHONE: 'Nomor telepon sudah terdaftar sebelumnya',
-  SAME_LOCATION_DIFFERENT_TIME: 'Lokasi yang sama dalam waktu berbeda',
+  DUPLICATE_NAME: 'Nama customer sudah terdaftar sebelumnya',
+  DUPLICATE_EMAIL: 'Email customer sudah terdaftar sebelumnya',
+  DUPLICATE_ALL: 'Customer sudah terdaftar (nama, email, atau telepon sama)',
+
+  // Screenshot issues
+  SCREENSHOT_MISSING: 'Screenshot bukti tidak lengkap',
+  SCREENSHOT_INCOMPLETE: 'Bukti screenshot tidak lengkap',
+
+  // GPS issues
+  GPS_SUSPICIOUS: 'Lokasi GPS mencurigakan atau tidak valid',
+  GPS_OUTSIDE_AREA: 'Lokasi GPS di luar area operasional',
   NO_GPS_DATA: 'Data GPS tidak tersedia',
-  VIRTUAL_DEVICE: 'Indikasi perangkat virtual/emulator',
+
+  // Evidence quality
+  INSUFFICIENT_EVIDENCE: 'Bukti aktivasi tidak cukup',
 };
 
-// Main fraud detection function
+// Main fraud detection function - focused on ACTUAL fraud, not normal patterns
 async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]> {
   const flags: FraudCheck[] = [];
 
-  // Check 1: Screenshot completeness
+  // ==========================================
+  // CHECK 1: Screenshot completeness (REQUIRED)
+  // ==========================================
   if (!submission.screenshot_download || !submission.screenshot_register || !submission.screenshot_rating) {
     flags.push({
       flag: 'SCREENSHOT_MISSING',
@@ -34,69 +43,17 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
     });
   }
 
-  // Check 2: GPS data
+  // ==========================================
+  // CHECK 2: GPS data (REQUIRED)
+  // ==========================================
   if (!submission.gps_lat || !submission.gps_lng) {
     flags.push({
       flag: 'NO_GPS_DATA',
       reason: FRAUD_REASONS['NO_GPS_DATA'],
-      severity: 'warning',
+      severity: 'warning', // Warning only - GPS might fail
     });
-  }
-
-  // Check 3: Same device - multiple customers
-  if (submission.device_info) {
-    const { data: sameDevice } = await supabase
-      .from('submissions')
-      .select('id, customer_name, created_at')
-      .eq('device_info', submission.device_info)
-      .neq('customer_name', submission.customer_name)
-      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-
-    if (sameDevice && sameDevice.length > 0) {
-      flags.push({
-        flag: 'SAME_DEVICE_MULTIPLE_CUSTOMERS',
-        reason: `${FRAUD_REASONS['SAME_DEVICE_MULTIPLE_CUSTOMERS']} (${sameDevice.length + 1} customer)`,
-        severity: 'critical',
-      });
-    }
-  }
-
-  // Check 4: Same phone prefix pattern
-  if (submission.customer_phone && submission.customer_phone.length >= 10) {
-    const phonePrefix = submission.customer_phone.substring(0, 4);
-    const { data: samePrefix } = await supabase
-      .from('submissions')
-      .select('id, customer_phone')
-      .like('customer_phone', `${phonePrefix}%`)
-      .neq('customer_name', submission.customer_name)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-    if (samePrefix && samePrefix.length > 2) {
-      flags.push({
-        flag: 'SAME_PHONE_PREFIX',
-        reason: `${FRAUD_REASONS['SAME_PHONE_PREFIX']} (${samePrefix.length + 1} nomor)`,
-        severity: 'warning',
-      });
-    }
-  }
-
-  // Check 5: Duplicate phone number
-  const { data: duplicatePhone } = await supabase
-    .from('submissions')
-    .select('id, submission_code')
-    .eq('customer_phone', submission.customer_phone)
-    .neq('customer_name', submission.customer_name);
-
-  if (duplicatePhone && duplicatePhone.length > 0) {
-    flags.push({
-      flag: 'DUPLICATE_PHONE',
-      reason: `Nomor telepon sudah terdaftar: ${duplicatePhone[0].submission_code}`,
-      severity: 'critical',
-    });
-  }
-
-  // Check 6: Suspicious GPS location
-  if (submission.gps_lat && submission.gps_lng) {
+  } else {
+    // Check for invalid coordinates
     const lat = parseFloat(submission.gps_lat);
     const lng = parseFloat(submission.gps_lng);
 
@@ -107,15 +64,88 @@ async function detectFraud(supabase: any, submission: any): Promise<FraudCheck[]
         severity: 'error',
       });
     }
+  }
 
-    const jakartaLat = -6.2;
-    const jakartaLng = 106.8;
-    const distance = Math.sqrt(Math.pow(lat - jakartaLat, 2) + Math.pow(lng - jakartaLng, 2));
+  // ==========================================
+  // CHECK 3: DUPLICATE PHONE (CRITICAL FRAUD)
+  // ==========================================
+  if (submission.customer_phone) {
+    const { data: duplicatePhone } = await supabase
+      .from('submissions')
+      .select('id, submission_code, customer_name, created_at')
+      .eq('customer_phone', submission.customer_phone)
+      .eq('campaign_id', submission.campaign_id); // Same campaign
 
-    if (distance > 10) {
+    if (duplicatePhone && duplicatePhone.length > 0) {
       flags.push({
-        flag: 'GPS_OUTSIDE_CITY',
-        reason: 'Lokasi GPS jauh dari area operasional (di luar Jawa?)',
+        flag: 'DUPLICATE_PHONE',
+        reason: `Nomor telepon '${submission.customer_phone}' sudah terdaftar di submission ${duplicatePhone[0].submission_code}`,
+        severity: 'critical',
+      });
+    }
+  }
+
+  // ==========================================
+  // CHECK 4: DUPLICATE NAME (CRITICAL FRAUD)
+  // ==========================================
+  if (submission.customer_name) {
+    // Normalize name for comparison (lowercase, trim spaces)
+    const normalizedName = submission.customer_name.toLowerCase().trim();
+
+    const { data: duplicateName } = await supabase
+      .from('submissions')
+      .select('id, submission_code, customer_phone, created_at')
+      .eq('campaign_id', submission.campaign_id)
+      .ilike('customer_name', normalizedName); // Case insensitive
+
+    if (duplicateName && duplicateName.length > 0) {
+      flags.push({
+        flag: 'DUPLICATE_NAME',
+        reason: `Nama '${submission.customer_name}' sudah terdaftar di submission ${duplicateName[0].submission_code}`,
+        severity: 'critical',
+      });
+    }
+  }
+
+  // ==========================================
+  // CHECK 5: DUPLICATE EMAIL (CRITICAL FRAUD)
+  // ==========================================
+  if (submission.customer_email) {
+    const { data: duplicateEmail } = await supabase
+      .from('submissions')
+      .select('id, submission_code, customer_name, created_at')
+      .eq('customer_email', submission.customer_email)
+      .eq('campaign_id', submission.campaign_id)
+      .not('customer_email', 'is', null);
+
+    if (duplicateEmail && duplicateEmail.length > 0) {
+      flags.push({
+        flag: 'DUPLICATE_EMAIL',
+        reason: `Email '${submission.customer_email}' sudah terdaftar di submission ${duplicateEmail[0].submission_code}`,
+        severity: 'critical',
+      });
+    }
+  }
+
+  // ==========================================
+  // CHECK 6: GPS Location validation (per campaign)
+  // ==========================================
+  if (submission.gps_lat && submission.gps_lng && submission.allowed_regions) {
+    const lat = parseFloat(submission.gps_lat);
+    const lng = parseFloat(submission.gps_lng);
+
+    // Check if location is within allowed regions
+    const isInAllowedRegion = submission.allowed_regions.some((region: any) => {
+      const distance = Math.sqrt(
+        Math.pow(lat - region.lat, 2) + Math.pow(lng - region.lng, 2)
+      );
+      return distance <= region.radius; // radius in degrees
+    });
+
+    if (!isInAllowedRegion && submission.allowed_regions.length > 0) {
+      flags.push({
+        flag: 'GPS_OUTSIDE_AREA',
+        reason: 'Lokasi GPS di luar area operasional yang diizinkan',
         severity: 'warning',
       });
     }
@@ -246,19 +276,29 @@ export async function POST(request: NextRequest) {
       phone = '+62' + phone.slice(1);
     }
 
+    // Fetch campaign settings for fraud rules
+    const { data: campaignData } = await supabase
+      .from('campaigns')
+      .select('id, name, fraud_rules, allowed_regions')
+      .eq('id', campaign_id)
+      .single();
+
     // Prepare submission data for fraud check
     const submissionData = {
       device_info: device_info || null,
       customer_phone: phone,
       customer_name,
+      customer_email: customer_email || null,
+      campaign_id,
       gps_lat: gps_lat || null,
       gps_lng: gps_lng || null,
       screenshot_download: true, // Files are present
       screenshot_register: true,
       screenshot_rating: true,
+      allowed_regions: campaignData?.allowed_regions || [],
     };
 
-    // Run fraud detection
+    // Run fraud detection with campaign-specific rules
     const fraudFlags = await detectFraud(supabase, submissionData);
 
     // Determine initial status
