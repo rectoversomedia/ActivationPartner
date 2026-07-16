@@ -443,59 +443,59 @@ export default function DashboardPage() {
                           Tidak ada submission
                         </td>
                       </tr>
-                    ) : (
-                      filteredSubmissions.map((sub, index) => {
+                    ) : filteredSubmissions.map((sub) => {
                         const fraudFlags = parseFraudFlags(sub.fraud_flags);
                         return (
-                        <tr
-                          key={sub.submission_code}
-                          className={cn(
-                            'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
-                            fraudFlags.length > 0 && 'bg-rose-50/50'
-                          )}
-                          onClick={() => setSelectedSubmission(sub)}
-                        >
-                          <td className="px-4 py-3">
-                            <span className="font-mono text-sm font-semibold text-blue-600">{sub.submission_code}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-                                <User size={14} className="text-slate-500" />
-                              </div>
-                              <span className="text-sm font-medium text-slate-900">{sub.sales_name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{sub.customer_name}</p>
-                              <p className="text-xs text-slate-500">{sub.customer_phone_masked || sub.customer_phone}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign_name}</td>
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="text-sm text-slate-900">{sub.created_at?.split('T')[0] || '-'}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
-                          <td className="px-4 py-3">
-                            {parseFraudFlags(sub.fraud_flags).length > 0 ? (
-                              <div className="flex items-center gap-1">
-                                <Warning size={16} className="text-rose-500" />
-                                <span className="text-xs text-rose-600 font-medium">{parseFraudFlags(sub.fraud_flags).length} flags</span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
+                          <tr
+                            key={sub.submission_code}
+                            className={cn(
+                              'border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer',
+                              fraudFlags.length > 0 && 'bg-rose-50/50'
                             )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
-                              <Eye size={18} className="text-slate-500" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            onClick={() => setSelectedSubmission(sub)}
+                          >
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-sm font-semibold text-blue-600">{sub.submission_code}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+                                  <User size={14} className="text-slate-500" />
+                                </div>
+                                <span className="text-sm font-medium text-slate-900">{sub.sales_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{sub.customer_name}</p>
+                                <p className="text-xs text-slate-500">{sub.customer_phone_masked || sub.customer_phone}</p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{sub.campaign_name}</td>
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="text-sm text-slate-900">{sub.created_at?.split('T')[0] || '-'}</p>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">{getStatusBadge(sub.status)}</td>
+                            <td className="px-4 py-3">
+                              {fraudFlags.length > 0 ? (
+                                <div className="flex items-center gap-1">
+                                  <Warning size={16} className="text-rose-500" />
+                                  <span className="text-xs text-rose-600 font-medium">{fraudFlags.length} flags</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <button className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                <Eye size={18} className="text-slate-500" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
