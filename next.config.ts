@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  devServer: {
-    port: 3100,
-  },
+  /* config options here */
 };
 
 export default nextConfig;

@@ -2,10 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import { CaretLeft, Trophy, PlusCircle, CheckCircle, Users, FileText, CurrencyCircleDollar, PencilSimple } from '@phosphor-icons/react';
-import { Button, Card, CardContent, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
+import { Button, Card, CardContent, Badge, Tabs, TabsList, TabsTrigger } from '@/components/ui';
 import { formatDate, formatIDR, formatNumber, statusColors, statusLabels } from '@/lib/utils';
 
 const mockCampaign = { id: '1', name: 'FIFGO Campaign', code: 'FIFGO2026', status: 'active', start_date: '2026-01-01', end_date: '2026-12-31', fee_per_activation: 5000, target_activations: 10000, current_activations: 4523, valid_activations: 4274, partners: 45 };
