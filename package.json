@@ -9,35 +9,22 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
     "@phosphor-icons/react": "^2.1.10",
-    "@radix-ui/react-label": "^2.1.11",
-    "@radix-ui/react-select": "^2.3.3",
-    "@radix-ui/react-toast": "^1.2.19",
-    "@supabase/ssr": "^0.12.3",
-    "@supabase/supabase-js": "^2.110.5",
-    "@tanstack/react-table": "^8.21.3",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^4.4.0",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-hook-form": "^7.81.0",
-    "recharts": "^3.9.2",
-    "tailwind-merge": "^3.6.0",
-    "tailwind-variants": "^3.2.2",
-    "zod": "^4.4.3",
-    "zod-validation-error": "^5.0.0"
+    "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.17",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
+    "next": "16.2.10",
+    "postcss": "^8.4.33",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }
 }
