@@ -5,7 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
-  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner, ShieldCheck
+  DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner, ShieldCheck,
+  Image as ImageIcon, Info, AlertTriangle
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,8 @@ interface Campaign {
     require_screenshot_register: boolean;
     require_screenshot_rating: boolean;
     require_gps: boolean;
+    max_image_size_mb?: number;
+    resize_images?: boolean;
   };
   required_evidence: EvidenceItem[];
   form_fields: FormField[];
@@ -59,6 +62,101 @@ interface PIC {
   phone: string;
   is_active?: boolean;
 }
+
+// Image compression utility
+const compressImage = async (
+  file: File,
+  maxSizeMB: number = 5,
+  maxWidth: number = 1200,
+  quality: number = 0.8
+): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        let { width, height } = img;
+
+        // Calculate new dimensions
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to compress image'));
+              return;
+            }
+
+            // Check if compression needed
+            const currentSizeMB = blob.size / (1024 * 1024);
+            if (currentSizeMB <= maxSizeMB) {
+              resolve(new File([blob], file.name, { type: file.type }));
+              return;
+            }
+
+            // Further compress if still too large
+            let qualityLevel = quality;
+            const reduceQuality = () => {
+              if (qualityLevel <= 0.1) {
+                resolve(new File([blob], file.name, { type: file.type }));
+                return;
+              }
+
+              qualityLevel -= 0.1;
+              canvas.toBlob(
+                (smallerBlob) => {
+                  if (!smallerBlob) {
+                    resolve(new File([blob], file.name, { type: file.type }));
+                    return;
+                  }
+
+                  if (smallerBlob.size / (1024 * 1024) <= maxSizeMB) {
+                    resolve(new File([smallerBlob], file.name, { type: file.type }));
+                  } else {
+                    reduceQuality();
+                  }
+                },
+                file.type,
+                qualityLevel
+              );
+            };
+
+            reduceQuality();
+          },
+          file.type,
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+  });
+};
+
+// Format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
 
 export default function SubmitPage() {
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
@@ -80,6 +178,8 @@ export default function SubmitPage() {
   const [evidenceFiles, setEvidenceFiles] = React.useState<Record<string, File | null>>({});
   const [evidencePreviews, setEvidencePreviews] = React.useState<Record<string, string>>({});
   const [evidenceAnalysis, setEvidenceAnalysis] = React.useState<Record<string, any>>({});
+  const [evidenceSizes, setEvidenceSizes] = React.useState<Record<string, { original: number; compressed: number }>>({});
+  const [isCompressing, setIsCompressing] = React.useState<Record<string, boolean>>({});
 
   // Device fingerprint & behavioral data
   const [deviceFingerprintHash, setDeviceFingerprintHash] = React.useState('');
@@ -215,37 +315,98 @@ export default function SubmitPage() {
     return field.options || [];
   };
 
-  // Handle file selection with screenshot analysis
+  // Get max image size from campaign settings
+  const getMaxImageSize = (): number => {
+    if (selectedCampaign?.fraud_rules?.max_image_size_mb) {
+      return selectedCampaign.fraud_rules.max_image_size_mb;
+    }
+    return 5; // Default 5MB
+  };
+
+  const shouldResizeImages = (): boolean => {
+    return selectedCampaign?.fraud_rules?.resize_images ?? true;
+  };
+
+  // Handle file selection with compression and analysis
   const handleEvidenceChange = async (evidenceId: string, file: File | null) => {
-    const newFiles = { ...evidenceFiles, [evidenceId]: file };
-    setEvidenceFiles(newFiles);
+    if (!file) {
+      // Clear evidence
+      const newFiles = { ...evidenceFiles };
+      delete newFiles[evidenceId];
+      setEvidenceFiles(newFiles);
 
-    if (file) {
-      // Preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setEvidencePreviews(prev => ({ ...prev, [evidenceId]: e.target?.result as string }));
-      };
-      reader.readAsDataURL(file);
-
-      // Analyze screenshot
-      try {
-        const analysis = await analyzeScreenshot(file);
-        setEvidenceAnalysis(prev => ({ ...prev, [evidenceId]: analysis }));
-      } catch (error) {
-        console.error('Screenshot analysis failed:', error);
-      }
-    } else {
       setEvidencePreviews(prev => {
         const newPreviews = { ...prev };
         delete newPreviews[evidenceId];
         return newPreviews;
       });
+
+      setEvidenceSizes(prev => {
+        const newSizes = { ...prev };
+        delete newSizes[evidenceId];
+        return newSizes;
+      });
+
       setEvidenceAnalysis(prev => {
         const newAnalysis = { ...prev };
         delete newAnalysis[evidenceId];
         return newAnalysis;
       });
+      return;
+    }
+
+    setIsCompressing(prev => ({ ...prev, [evidenceId]: true }));
+
+    try {
+      let processedFile = file;
+      const originalSize = file.size;
+
+      // Check if file needs compression
+      const maxSize = getMaxImageSize();
+      const currentSizeMB = file.size / (1024 * 1024);
+
+      if (currentSizeMB > maxSize && shouldResizeImages()) {
+        // Compress image
+        processedFile = await compressImage(file, maxSize);
+      }
+
+      // Update sizes
+      setEvidenceSizes(prev => ({
+        ...prev,
+        [evidenceId]: { original: originalSize, compressed: processedFile.size }
+      }));
+
+      // Update file
+      const newFiles = { ...evidenceFiles, [evidenceId]: processedFile };
+      setEvidenceFiles(newFiles);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        setEvidencePreviews(prev => ({ ...prev, [evidenceId]: e.target?.result as string }));
+
+        // Analyze screenshot
+        try {
+          const analysis = await analyzeScreenshot(processedFile);
+          setEvidenceAnalysis(prev => ({ ...prev, [evidenceId]: analysis }));
+        } catch (error) {
+          console.error('Screenshot analysis failed:', error);
+        }
+      };
+      reader.readAsDataURL(processedFile);
+    } catch (error) {
+      console.error('Failed to process image:', error);
+      // Still use original file if compression fails
+      const newFiles = { ...evidenceFiles, [evidenceId]: file };
+      setEvidenceFiles(newFiles);
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        setEvidencePreviews(prev => ({ ...prev, [evidenceId]: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressing(prev => ({ ...prev, [evidenceId]: false }));
     }
   };
 
@@ -256,11 +417,11 @@ export default function SubmitPage() {
     const timeOnField = now - prevTiming;
 
     // Track typing speed (if there's previous timing)
-    if (timeOnField > 0 && timeOnField < 5000) { // Less than 5 seconds = possible typing
+    if (timeOnField > 0 && timeOnField < 5000) {
       const fieldValue = formData[fieldName] || '';
       if (fieldValue.length > 0) {
         const charsPerSecond = fieldValue.length / (timeOnField / 1000);
-        if (charsPerSecond > 1 && charsPerSecond < 50) { // Reasonable typing speed
+        if (charsPerSecond > 1 && charsPerSecond < 50) {
           setTypingSpeeds(prev => [...prev, charsPerSecond]);
         }
       }
@@ -376,6 +537,7 @@ export default function SubmitPage() {
     });
     setEvidenceFiles({});
     setEvidencePreviews({});
+    setEvidenceSizes({});
   };
 
   return (
@@ -405,7 +567,10 @@ export default function SubmitPage() {
       {/* Form */}
       {isLoadingMaster ? (
         <div className="max-w-md mx-auto px-4">
-          <Card><CardContent className="p-8 text-center">Loading...</CardContent></Card>
+          <Card><CardContent className="p-8 text-center">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-500">Loading...</p>
+          </CardContent></Card>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
@@ -452,6 +617,7 @@ export default function SubmitPage() {
                     // Reset evidence when campaign changes
                     setEvidenceFiles({});
                     setEvidencePreviews({});
+                    setEvidenceSizes({});
                   }}
                   required
                   className="w-full h-11 px-4 rounded-lg border border-slate-200 text-slate-900 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white"
@@ -514,7 +680,13 @@ export default function SubmitPage() {
               {selectedCampaign && selectedCampaign.required_evidence.length > 0 && (
                 <>
                   <div className="border-t border-slate-100 my-4" />
-                  <p className="text-sm font-bold text-slate-900">Bukti Screenshot</p>
+                  <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Camera size={18} className="text-purple-500" />
+                    Bukti Screenshot
+                    <span className="text-xs font-normal text-slate-500 ml-auto">
+                      Max {getMaxImageSize()}MB per file
+                    </span>
+                  </p>
 
                   <div className="space-y-3">
                     {selectedCampaign.required_evidence.map((evidence) => (
@@ -529,15 +701,34 @@ export default function SubmitPage() {
                       >
                         <div className="flex items-center gap-3 mb-3">
                           <div className={cn(
-                            'p-2 rounded-lg',
+                            'p-2 rounded-lg transition-colors',
                             evidenceFiles[evidence.id] ? 'bg-blue-500' : 'bg-slate-100'
                           )}>
-                            <Camera size={20} className={evidenceFiles[evidence.id] ? 'text-white' : 'text-slate-500'} />
+                            {isCompressing[evidence.id] ? (
+                              <Spinner size={20} className="text-white animate-spin" />
+                            ) : (
+                              <Camera size={20} className={evidenceFiles[evidence.id] ? 'text-white' : 'text-slate-500'} />
+                            )}
                           </div>
                           <div className="flex-1">
                             <p className="font-semibold text-slate-900">{evidence.label}</p>
                             {evidence.required && <p className="text-xs text-red-500">Wajib</p>}
                           </div>
+
+                          {/* File size indicator */}
+                          {evidenceSizes[evidence.id] && (
+                            <div className="text-right">
+                              {evidenceSizes[evidence.id].original !== evidenceSizes[evidence.id].compressed ? (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <span className="text-slate-400 line-through">{formatFileSize(evidenceSizes[evidence.id].original)}</span>
+                                  <ArrowRight size={10} className="text-emerald-500" />
+                                  <span className="text-emerald-600 font-semibold">{formatFileSize(evidenceSizes[evidence.id].compressed)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-500">{formatFileSize(evidenceSizes[evidence.id].original)}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {evidencePreviews[evidence.id] ? (
@@ -546,20 +737,30 @@ export default function SubmitPage() {
                             <button
                               type="button"
                               onClick={() => handleEvidenceChange(evidence.id, null)}
-                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full"
+                              className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                             >
                               <X size={16} />
                             </button>
                           </div>
                         ) : (
                           <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-slate-50 transition-all">
-                            <Upload size={24} className="text-slate-400 mb-2" />
-                            <span className="text-sm text-slate-500">Tap to upload</span>
+                            {isCompressing[evidence.id] ? (
+                              <>
+                                <Spinner size={24} className="text-blue-500 animate-spin mb-2" />
+                                <span className="text-sm text-slate-500">Processing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload size={24} className="text-slate-400 mb-2" />
+                                <span className="text-sm text-slate-500">Tap to upload</span>
+                              </>
+                            )}
                             <input
                               type="file"
                               accept="image/*"
                               onChange={(e) => handleEvidenceChange(evidence.id, e.target.files?.[0] || null)}
                               className="hidden"
+                              disabled={isCompressing[evidence.id]}
                             />
                           </label>
                         )}
@@ -574,7 +775,7 @@ export default function SubmitPage() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
               >
                 <Fingerprint size={18} />
                 Device Info (Auto-captured)
@@ -603,6 +804,18 @@ export default function SubmitPage() {
                       </p>
                     </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle size={20} className={isSuspicious ? 'text-amber-500' : 'text-emerald-500'} />
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500">Device Fingerprint</p>
+                      <p className="text-sm font-medium text-slate-700">
+                        {deviceFingerprintHash ? `Hash: ${deviceFingerprintHash.substring(0, 12)}...` : 'Generating...'}
+                      </p>
+                      {isSuspicious && suspiciousReasons.length > 0 && (
+                        <p className="text-xs text-amber-600 mt-1">⚠️ {suspiciousReasons[0]}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -612,7 +825,7 @@ export default function SubmitPage() {
           <div className="mt-6">
             <Button
               type="submit"
-              disabled={!isFormValid()}
+              disabled={!isFormValid() || isSubmitting}
               isLoading={isSubmitting}
               className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
             >
@@ -665,7 +878,7 @@ export default function SubmitPage() {
                       fraudResult.riskLevel === 'high' ? 'bg-orange-100 text-orange-700' :
                       'bg-red-100 text-red-700'
                     )}>
-                      {fraudResult.riskLevel.toUpperCase()}
+                      {fraudResult.riskLevel?.toUpperCase() || 'UNKNOWN'}
                     </span>
                   </div>
                   <div className="space-y-1">
@@ -709,3 +922,10 @@ export default function SubmitPage() {
     </div>
   );
 }
+
+// Helper component
+const ArrowRight = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <path d="M8 3L13 8L8 13M3 8H13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
