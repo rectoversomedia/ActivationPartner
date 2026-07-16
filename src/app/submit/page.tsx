@@ -267,16 +267,6 @@ export default function SubmitPage() {
     setCurrentFieldStart(now);
     setFieldTimings(prev => ({ ...prev, [fieldName]: now }));
   };
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setEvidencePreviews(prev => {
-        const newPreviews = { ...prev };
-        delete newPreviews[evidenceId];
-        return newPreviews;
-      });
-    }
-  };
 
   // Check if form is valid
   const isFormValid = () => {

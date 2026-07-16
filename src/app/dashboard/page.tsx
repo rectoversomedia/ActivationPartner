@@ -7,7 +7,7 @@ import {
   Funnel, CheckCircle, XCircle, Clock, Warning, Eye,
   User, Calendar, Flag, Phone, Envelope, Camera, ArrowRight,
   ChartBar, Users, Shield, FileText, Plus, ShieldCheck,
-  ShieldAlert, ShieldSlash, Question
+  WarningCircle, ShieldSlash, Question
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -60,7 +60,7 @@ const getFraudDecisionBadge = (decision: string) => {
     case 'review':
       return <Badge className="bg-blue-100 text-blue-700"><Question size={14} weight="fill" className="mr-1" />Review</Badge>;
     case 'flag':
-      return <Badge className="bg-amber-100 text-amber-700"><ShieldAlert size={14} weight="fill" className="mr-1" />Flag</Badge>;
+      return <Badge className="bg-amber-100 text-amber-700"><WarningCircle size={14} weight="fill" className="mr-1" />Flag</Badge>;
     case 'block':
       return <Badge className="bg-red-100 text-red-700"><ShieldSlash size={14} weight="fill" className="mr-1" />Block</Badge>;
     default:
