@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, XCircle, Clock, Eye, Plus, Filter, Download } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, Clock, Eye, Plus, Funnel, Download } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -81,7 +81,7 @@ export default function DashboardPage() {
                   <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-blue-100">
-                  <Filter size={24} className="text-blue-600" />
+                  <Funnel size={24} className="text-blue-600" />
                 </div>
               </div>
             </CardContent>
