@@ -309,143 +309,107 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        {/* Stats Grid - 3 columns symmetrical */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {/* Total */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30">
-                  <FileText size={20} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-                  <p className="text-xs text-slate-500">Total</p>
-                </div>
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 mb-2">
+                <FileText size={20} className="text-white" />
               </div>
+              <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
+              <p className="text-xs text-slate-500 mt-1">Total</p>
             </CardContent>
           </Card>
 
           {/* Valid */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:shadow-emerald-500/5 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30">
-                  <CheckCircle size={20} weight="fill" className="text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-emerald-600">{stats.valid}</p>
-                  <p className="text-xs text-slate-500">Valid</p>
-                </div>
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30 mb-2">
+                <CheckCircle size={20} weight="fill" className="text-white" />
               </div>
+              <p className="text-3xl font-bold text-emerald-600">{stats.valid}</p>
+              <p className="text-xs text-slate-500 mt-1">Valid</p>
             </CardContent>
           </Card>
 
           {/* Pending */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30">
-                  <Clock size={20} weight="fill" className="text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
-                  <p className="text-xs text-slate-500">Pending</p>
-                </div>
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30 mb-2">
+                <Clock size={20} weight="fill" className="text-white" />
               </div>
+              <p className="text-3xl font-bold text-amber-600">{stats.pending}</p>
+              <p className="text-xs text-slate-500 mt-1">Pending</p>
             </CardContent>
           </Card>
 
           {/* Invalid */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:shadow-red-500/5 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/30">
-                  <XCircle size={20} weight="fill" className="text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-red-600">{stats.invalid}</p>
-                  <p className="text-xs text-slate-500">Invalid</p>
-                </div>
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/30 mb-2">
+                <XCircle size={20} weight="fill" className="text-white" />
               </div>
+              <p className="text-3xl font-bold text-red-600">{stats.invalid}</p>
+              <p className="text-xs text-slate-500 mt-1">Invalid</p>
             </CardContent>
           </Card>
 
           {/* Fraud */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30">
-                  <Shield size={20} weight="fill" className="text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-rose-600">{stats.fraud}</p>
-                  <p className="text-xs text-slate-500">Fraud</p>
-                </div>
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 mb-2">
+                <Shield size={20} weight="fill" className="text-white" />
               </div>
+              <p className="text-3xl font-bold text-rose-600">{stats.fraud}</p>
+              <p className="text-xs text-slate-500 mt-1">Fraud</p>
             </CardContent>
           </Card>
 
           {/* Valid Rate */}
           <Card className="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 text-white shadow-xl shadow-purple-500/25">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-3xl font-bold">{validRate}%</p>
-                  <p className="text-xs text-white/70">Valid Rate</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm">
-                  <ChartBar size={24} className="text-white" />
-                </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm mb-2">
+                <ChartBar size={20} className="text-white" />
               </div>
-              <div className="mt-2 h-1.5 bg-white/20 backdrop-blur-sm rounded-full overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all duration-700 shadow-lg shadow-white/50" style={{ width: `${validRate}%` }} />
+              <p className="text-3xl font-bold">{validRate}%</p>
+              <p className="text-xs text-white/70 mt-1">Valid Rate</p>
+              <div className="w-full h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${validRate}%` }} />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Fraud Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        {/* Fraud Stats - 3 columns symmetrical */}
+        <div className="grid grid-cols-3 gap-3">
           <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-sm border border-emerald-500/30">
-                  <ShieldCheck size={20} weight="fill" className="text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.fraudScoreAvg}</p>
-                  <p className="text-xs text-slate-300">Avg Fraud Score</p>
-                </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-sm border border-emerald-500/30 mb-2">
+                <ShieldCheck size={20} weight="fill" className="text-emerald-400" />
               </div>
+              <p className="text-2xl font-bold">{stats.fraudScoreAvg}</p>
+              <p className="text-xs text-slate-300 mt-1">Avg Fraud Score</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 backdrop-blur-sm border border-amber-500/30">
-                  <Warning size={20} weight="fill" className="text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.fraudReview + stats.fraudFlag}</p>
-                  <p className="text-xs text-slate-300">Need Review</p>
-                </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 backdrop-blur-sm border border-amber-500/30 mb-2">
+                <Warning size={20} weight="fill" className="text-amber-400" />
               </div>
+              <p className="text-2xl font-bold">{stats.fraudReview + stats.fraudFlag}</p>
+              <p className="text-xs text-slate-300 mt-1">Need Review</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl col-span-2 sm:col-span-1">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/20 backdrop-blur-sm border border-red-500/30">
-                  <ShieldSlash size={20} weight="fill" className="text-red-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.fraudBlock}</p>
-                  <p className="text-xs text-slate-300">Auto Blocked</p>
-                </div>
+          <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/20 backdrop-blur-sm border border-red-500/30 mb-2">
+                <ShieldSlash size={20} weight="fill" className="text-red-400" />
               </div>
+              <p className="text-2xl font-bold">{stats.fraudBlock}</p>
+              <p className="text-xs text-slate-300 mt-1">Auto Blocked</p>
             </CardContent>
           </Card>
         </div>
