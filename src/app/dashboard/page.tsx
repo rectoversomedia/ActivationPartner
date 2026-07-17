@@ -107,13 +107,71 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
   const [view, setView] = React.useState<"submissions" | "sales" | "daily">("submissions");
+  const [datePreset, setDatePreset] = React.useState<string>("today");
   const [dateFrom, setDateFrom] = React.useState<string>("");
   const [dateTo, setDateTo] = React.useState<string>("");
+  const [showCustomDate, setShowCustomDate] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
   const [salesStats, setSalesStats] = React.useState<
     { name: string; total: number; valid: number; fraud: number; rate: number }[]
   >([]);
+
+  // Date preset handlers
+  const getDateRange = (preset: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const last7Days = new Date(today);
+    last7Days.setDate(last7Days.getDate() - 7);
+    const last30Days = new Date(today);
+    last30Days.setDate(last30Days.getDate() - 30);
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+    const lastYear = new Date(today.getFullYear() - 1, 0, 1);
+    const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
+
+    switch (preset) {
+      case "today":
+        return { from: today.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
+      case "yesterday":
+        return { from: yesterday.toISOString().split("T")[0], to: yesterday.toISOString().split("T")[0] };
+      case "last7":
+        return { from: last7Days.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
+      case "last30":
+        return { from: last30Days.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
+      case "lastMonth":
+        return { from: lastMonth.toISOString().split("T")[0], to: lastMonthEnd.toISOString().split("T")[0] };
+      case "lastYear":
+        return { from: lastYear.toISOString().split("T")[0], to: lastYearEnd.toISOString().split("T")[0] };
+      default:
+        return { from: "", to: "" };
+    }
+  };
+
+  const handlePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    if (preset === "custom") {
+      setShowCustomDate(true);
+      setDateFrom("");
+      setDateTo("");
+    } else {
+      setShowCustomDate(false);
+      const range = getDateRange(preset);
+      setDateFrom(range.from);
+      setDateTo(range.to);
+    }
+  };
+
+  // Initialize with today
+  React.useEffect(() => {
+    const range = getDateRange("today");
+    setDateFrom(range.from);
+    setDateTo(range.to);
+  }, []);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
@@ -316,25 +374,37 @@ export default function DashboardPage() {
           </div>
 
           {/* Date Range Filter */}
-          <div className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
-            <CalendarBlank size={16} className="text-slate-400" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-sm border-none outline-none bg-transparent"
-            />
-            <span className="text-slate-400">-</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-sm border-none outline-none bg-transparent"
-            />
-            {(dateFrom || dateTo) && (
-              <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="ml-2 text-xs text-red-500 hover:underline">
-                Clear
-              </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={datePreset}
+              onChange={(e) => handlePresetChange(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white shadow-sm"
+            >
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="last7">Last 7 Days</option>
+              <option value="last30">Last 30 Days</option>
+              <option value="lastMonth">Last Month</option>
+              <option value="lastYear">Last Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+
+            {showCustomDate && (
+              <>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setDatePreset("custom"); }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+                />
+                <span className="text-slate-400">-</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setDatePreset("custom"); }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+                />
+              </>
             )}
           </div>
 
