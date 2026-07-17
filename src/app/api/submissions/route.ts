@@ -125,37 +125,73 @@ async function detectFraudV2(
   }
 
   // ============================================
-  // 1B. DUPLICATE SCREENSHOT CHECK
+  // 1B. DUPLICATE SCREENSHOT CHECK - CRITICAL FRAUD
   // ============================================
   // Check if multiple evidence types have the same image hash
   if (submission.evidence_hashes && submission.evidence_hashes.length > 1) {
-    const hashCounts: Record<string, number> = {};
-    const hashToType: Record<string, string[]> = {};
+    const hashes = submission.evidence_hashes;
+    const types = submission.evidence_types || [];
 
-    for (const hash of submission.evidence_hashes) {
-      if (hash && hash !== 'pending') {
-        hashCounts[hash] = (hashCounts[hash] || 0) + 1;
-        if (!hashToType[hash]) hashToType[hash] = [];
-        if (submission.evidence_types) {
-          const idx = submission.evidence_hashes.indexOf(hash);
-          if (submission.evidence_types[idx]) {
-            hashToType[hash].push(submission.evidence_types[idx]);
-          }
-        }
+    // Filter out 'pending' hashes
+    const validHashes: string[] = [];
+    const validTypes: string[] = [];
+
+    for (let i = 0; i < hashes.length; i++) {
+      if (hashes[i] && hashes[i] !== 'pending') {
+        validHashes.push(hashes[i]);
+        if (types[i]) validTypes.push(types[i]);
       }
     }
 
-    // Flag if same hash used for multiple evidence
-    for (const [hash, count] of Object.entries(hashCounts)) {
-      if (count > 1) {
-        flags.push({
-          flag: "DUPLICATE_SCREENSHOT",
-          reason: `Foto yang sama digunakan untuk ${count} evidence berbeda (kemungkinan foto diambil dari screenshot yang sama)`,
-          severity: "critical" as const,
-          category: "evidence",
-          score: 40,
-          metadata: { hash, evidenceTypes: hashToType[hash] || [] },
-        });
+    if (validHashes.length >= 2) {
+      // Count occurrences of each hash
+      const hashCounts: Record<string, { count: number; types: string[] }> = {};
+
+      for (let i = 0; i < validHashes.length; i++) {
+        const hash = validHashes[i];
+        if (!hashCounts[hash]) {
+          hashCounts[hash] = { count: 0, types: [] };
+        }
+        hashCounts[hash].count++;
+        if (validTypes[i]) {
+          hashCounts[hash].types.push(validTypes[i]);
+        }
+      }
+
+      // Check for ALL screenshots being the same (100% fraud)
+      const allSameHash = Object.keys(hashCounts).length === 1 && validHashes.length >= 3;
+
+      for (const [hash, data] of Object.entries(hashCounts)) {
+        if (data.count > 1) {
+          const typeLabels = data.types.map(t => {
+            if (t.includes('download')) return 'Screenshot Download';
+            if (t.includes('register')) return 'Screenshot Registrasi';
+            if (t.includes('rating')) return 'Rating & Review';
+            return t;
+          }).join(', ');
+
+          if (allSameHash) {
+            // ALL 3 evidence are the same photo - CRITICAL
+            flags.push({
+              flag: "IDENTICAL_ALL_SCREENSHOTS",
+              reason: `FRAUD 100%: Foto IDENTIK untuk SEMUA evidence (${typeLabels}). Kemungkinan screenshot dari 1 layar yang sama.`,
+              severity: "critical" as const,
+              category: "evidence",
+              score: 80, // High score for 100% fraud
+              metadata: { hash, evidenceTypes: data.types, allSame: true },
+            });
+          } else {
+            // Some evidence share same photo
+            flags.push({
+              flag: "DUPLICATE_SCREENSHOT",
+              reason: `Foto DUPLIKAT: Foto yang sama digunakan untuk ${data.count} evidence (${typeLabels})`,
+              severity: "high" as const,
+              category: "evidence",
+              score: 40,
+              metadata: { hash, evidenceTypes: data.types, count: data.count },
+            });
+          }
+        }
       }
     }
   }
