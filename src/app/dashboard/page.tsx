@@ -102,14 +102,17 @@ const exportToCSV = (submissions: Submission[]) => {
 };
 
 export default function DashboardPage() {
+  // Initial date for today
+  const todayStr = new Date().toISOString().split("T")[0];
+
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [salesFilter, setSalesFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
   const [view, setView] = React.useState<"submissions" | "sales" | "daily">("submissions");
   const [datePreset, setDatePreset] = React.useState<string>("today");
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
+  const [dateFrom, setDateFrom] = React.useState<string>(todayStr);
+  const [dateTo, setDateTo] = React.useState<string>(todayStr);
   const [showCustomDate, setShowCustomDate] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
@@ -119,8 +122,8 @@ export default function DashboardPage() {
 
   // Date preset handlers
   const getDateRange = (preset: string) => {
+    // Use local date to avoid timezone issues
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split("T")[0];
 
     switch (preset) {
@@ -169,13 +172,6 @@ export default function DashboardPage() {
       setDateTo(range.to);
     }
   };
-
-  // Initialize with today
-  React.useEffect(() => {
-    const range = getDateRange("today");
-    setDateFrom(range.from);
-    setDateTo(range.to);
-  }, []);
 
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
