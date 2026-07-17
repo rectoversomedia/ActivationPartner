@@ -238,6 +238,16 @@ export default function DashboardPage() {
     setShowReviewModal(true);
   };
 
+  // Delete submission
+  const deleteSubmission = async (id: string) => {
+    try {
+      await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
+      fetchData();
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
+  };
+
   // Save fraud review with decision
   const saveFraudReview = async (decision: 'allow' | 'review' | 'flag' | 'block') => {
     if (!reviewSubmission) return;
@@ -560,18 +570,12 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => setSelectedSubmission(sub)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" title="View Detail">
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedSubmission(sub); }} className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" title="View Detail">
                               <Eye size={18} />
                             </button>
-                            {isFlagged && (
-                              <button
-                                onClick={(e) => openReviewModal(sub, e)}
-                                className="p-2 hover:bg-amber-100 rounded-lg transition-colors text-amber-600"
-                                title="Add Remarks"
-                              >
-                                <ChatText size={18} />
-                              </button>
-                            )}
+                            <button onClick={(e) => { e.stopPropagation(); if(confirm('Hapus submission ini?')) deleteSubmission(sub.id); }} className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600" title="Hapus">
+                              <Trash size={18} />
+                            </button>
                           </div>
                         </td>
                       </tr>
