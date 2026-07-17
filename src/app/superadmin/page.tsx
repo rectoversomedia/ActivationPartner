@@ -382,7 +382,6 @@ export default function SuperAdminPage() {
   };
 
   const deleteCampaign = async (id: string) => {
-    if (!confirm('Delete this campaign?')) return;
     try {
       await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
       await loadData();
@@ -426,7 +425,6 @@ export default function SuperAdminPage() {
   };
 
   const deleteItem = async (type: 'sales' | 'pics', id: string) => {
-    if (!confirm('Delete this?')) return;
     try {
       await fetch(`/api/master-data/${type}/${id}`, { method: 'DELETE' });
       await loadData();
