@@ -714,6 +714,16 @@ export async function POST(request: NextRequest) {
         : campaignData.required_evidence;
     }
 
+    // Check if files were actually uploaded - check all evidence IDs dynamically
+    const uploadedEvidenceIds = requiredEvidence
+      .filter(e => formData.get(`evidence_${e.id}`) !== null)
+      .map(e => e.id);
+
+    // Check specific evidence types
+    const screenshotDownload = uploadedEvidenceIds.some(id => id.includes('download'));
+    const screenshotRegister = uploadedEvidenceIds.some(id => id.includes('register'));
+    const screenshotRating = uploadedEvidenceIds.some(id => id.includes('rating'));
+
     // Prepare submission data for fraud check
     const submissionData = {
       customer_phone: phone,
@@ -725,9 +735,9 @@ export async function POST(request: NextRequest) {
       gps_lat,
       gps_lng,
       ip_address: ip_address || undefined,
-      screenshot_download: requiredEvidence.some((e) => e.id === "download"),
-      screenshot_register: requiredEvidence.some((e) => e.id === "register"),
-      screenshot_rating: requiredEvidence.some((e) => e.id === "rating"),
+      screenshot_download: screenshotDownload,
+      screenshot_register: screenshotRegister,
+      screenshot_rating: screenshotRating,
       time_on_page_ms,
       typing_speeds,
     };
@@ -775,9 +785,9 @@ export async function POST(request: NextRequest) {
         device_fingerprint_hash: device_fingerprint_hash || null,
         gps_lat: gps_lat ? parseFloat(gps_lat) : null,
         gps_lng: gps_lng ? parseFloat(gps_lng) : null,
-        screenshot_download: requiredEvidence.some((e: any) => e.id === "download"),
-        screenshot_register: requiredEvidence.some((e: any) => e.id === "register"),
-        screenshot_rating: requiredEvidence.some((e: any) => e.id === "rating"),
+        screenshot_download: screenshotDownload,
+        screenshot_register: screenshotRegister,
+        screenshot_rating: screenshotRating,
         status,
         fraud_flags: fraudFlagsJson,
         fraud_score: fraudResult.score,
