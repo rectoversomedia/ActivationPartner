@@ -604,20 +604,19 @@ export default function SubmitPage() {
         <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
           {/* Brand Logo - Show when campaign is selected */}
           {selectedCampaign && (
-            <div className="mb-6 flex justify-center">
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-4 flex items-center gap-3 text-white">
-                {selectedCampaign.brand_logo_url ? (
-                  <img src={selectedCampaign.brand_logo_url} alt={selectedCampaign.name} className="h-10 w-auto object-contain" />
-                ) : (
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center font-bold text-lg">
-                    {selectedCampaign.name[0]}
-                  </div>
-                )}
-                <div>
-                  <span className="font-bold text-sm">{selectedCampaign.name}</span>
-                  <p className="text-xs text-white/80">{selectedCampaign.code} • Rp {selectedCampaign.fee_per_activation?.toLocaleString()}</p>
+            <div className="mb-8 flex flex-col items-center">
+              {selectedCampaign.brand_logo_url ? (
+                <img
+                  src={selectedCampaign.brand_logo_url}
+                  alt={selectedCampaign.name}
+                  className="h-[200px] w-auto object-contain"
+                />
+              ) : (
+                <div className="h-[200px] w-[200px] bg-slate-100 rounded-2xl flex items-center justify-center">
+                  <span className="text-6xl font-bold text-slate-400">{selectedCampaign.name[0]}</span>
                 </div>
-              </div>
+              )}
+              <h2 className="mt-4 text-xl font-bold text-slate-800">{selectedCampaign.name}</h2>
             </div>
           )}
           <Card className="bg-white border border-slate-200 shadow-sm">
