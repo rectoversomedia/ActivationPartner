@@ -278,18 +278,16 @@ export default function SuperAdminPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [campRes, salesRes, picsRes] = await Promise.all([
+      const [campRes, masterRes] = await Promise.all([
         fetch('/api/campaigns'),
-        fetch('/api/master-data?sales'),
-        fetch('/api/master-data?pics'),
+        fetch('/api/master-data?type=all'),
       ]);
       const campData = await campRes.json();
-      const salesData = await salesRes.json();
-      const picsData = await picsRes.json();
+      const masterData = await masterRes.json();
 
       if (campData.data) setCampaigns(campData.data);
-      if (salesData.data) setSalesList(salesData.data);
-      if (picsData.data) setPicsList(picsData.data);
+      if (masterData.sales) setSalesList(masterData.sales);
+      if (masterData.pics) setPicsList(masterData.pics);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
