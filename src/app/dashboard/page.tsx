@@ -20,6 +20,7 @@ import {
   X,
   ArrowClockwise,
   FileArrowDown,
+  CalendarBlank,
   Users,
   MapPin,
   Camera,
@@ -105,7 +106,9 @@ export default function DashboardPage() {
   const [salesFilter, setSalesFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
-  const [view, setView] = React.useState<"submissions" | "sales">("submissions");
+  const [view, setView] = React.useState<"submissions" | "sales" | "daily">("submissions");
+  const [dateFrom, setDateFrom] = React.useState<string>("");
+  const [dateTo, setDateTo] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
   const [salesStats, setSalesStats] = React.useState<
@@ -158,17 +161,20 @@ export default function DashboardPage() {
     (sub) =>
       (statusFilter === "all" || sub.status === statusFilter) &&
       (salesFilter === "all" || sub.sales_name === salesFilter) &&
+      (!dateFrom || new Date(sub.created_at) >= new Date(dateFrom)) &&
+      (!dateTo || new Date(sub.created_at) <= new Date(dateTo + "T23:59:59")) &&
       (!searchQuery ||
         sub.submission_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sub.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sub.sales_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Stats for filtered submissions
   const stats = {
-    total: submissions.length,
-    valid: submissions.filter((s) => s.status === "valid").length,
-    pending: submissions.filter((s) => s.status === "pending").length,
-    fraud: submissions.filter((s) => s.status === "fraud").length,
+    total: filteredSubmissions.length,
+    valid: filteredSubmissions.filter((s) => s.status === "valid").length,
+    pending: filteredSubmissions.filter((s) => s.status === "pending").length,
+    fraud: filteredSubmissions.filter((s) => s.status === "fraud").length,
   };
 
   const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
@@ -286,6 +292,17 @@ export default function DashboardPage() {
               <FileText size={16} /> Submissions
             </button>
             <button
+              onClick={() => setView("daily")}
+              className={cn(
+                "px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-sm",
+                view === "daily"
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-500/30"
+                  : "text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <Clock size={16} /> Daily
+            </button>
+            <button
               onClick={() => setView("sales")}
               className={cn(
                 "px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 shadow-sm",
@@ -298,20 +315,41 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="relative">
-              <MagnifyingGlass
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm w-64"
-              />
-            </div>
+          {/* Date Range Filter */}
+          <div className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
+            <CalendarBlank size={16} className="text-slate-400" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="text-sm border-none outline-none bg-transparent"
+            />
+            <span className="text-slate-400">-</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="text-sm border-none outline-none bg-transparent"
+            />
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="ml-2 text-xs text-red-500 hover:underline">
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <MagnifyingGlass
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none shadow-sm w-64"
+            />
           </div>
         </div>
 
@@ -594,6 +632,68 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+          </Card>
+        )}
+
+        {/* Daily View */}
+        {view === "daily" && (
+          <Card className="bg-white border border-slate-200/60 shadow-sm overflow-hidden">
+            <CardContent className="p-4">
+              <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Clock size={18} className="text-amber-500" /> Daily Report</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+                      <th className="px-4 py-3 text-left font-semibold text-slate-600">Date</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-600">Total</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-600">Valid</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-600">Fraud</th>
+                      <th className="px-4 py-3 text-center font-semibold text-slate-600">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      // Group by date
+                      const byDate = new Map<string, { total: number; valid: number; fraud: number }>();
+                      submissions.forEach((sub) => {
+                        const date = new Date(sub.created_at).toISOString().split("T")[0];
+                        const current = byDate.get(date) || { total: 0, valid: 0, fraud: 0 };
+                        current.total++;
+                        if (sub.status === "valid") current.valid++;
+                        if (sub.status === "fraud") current.fraud++;
+                        byDate.set(date, current);
+                      });
+
+                      return Array.from(byDate.entries())
+                        .sort((a, b) => b[0].localeCompare(a[0]))
+                        .map(([date, data]) => {
+                          const rate = data.total > 0 ? Math.round((data.valid / data.total) * 100) : 0;
+                          return (
+                            <tr key={date} className="hover:bg-amber-50/50">
+                              <td className="px-4 py-3 font-medium text-slate-900">
+                                {new Date(date).toLocaleDateString("id-ID", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
+                              </td>
+                              <td className="px-4 py-3 text-center font-bold">{data.total}</td>
+                              <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{data.valid}</td>
+                              <td className="px-4 py-3 text-center text-rose-600 font-semibold">{data.fraud}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={cn(
+                                  "px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm",
+                                  rate >= 90 ? "bg-emerald-100 text-emerald-700" :
+                                  rate >= 70 ? "bg-amber-100 text-amber-700" :
+                                  "bg-red-100 text-red-700"
+                                )}>
+                                  {rate}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
           </Card>
         )}
       </main>
