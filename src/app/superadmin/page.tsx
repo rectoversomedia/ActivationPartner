@@ -371,8 +371,7 @@ export default function SuperAdminPage() {
       formData.append('fraud_rules', JSON.stringify(editingCampaign.fraud_rules));
       formData.append('required_evidence', JSON.stringify(editingCampaign.required_evidence));
       formData.append('form_fields', JSON.stringify(editingCampaign.form_fields));
-      formData.append('flexible_urls', JSON.stringify(editingCampaign.flexible_urls || []));
-      formData.append('allowed_regions', JSON.stringify([]));
+      formData.append('flexible_urls', JSON.stringify(editingCampaign.flexible_urls));
 
       if (editingCampaign.brand_logo_file) {
         formData.append('brand_logo', editingCampaign.brand_logo_file);
