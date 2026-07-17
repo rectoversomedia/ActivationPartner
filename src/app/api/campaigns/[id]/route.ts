@@ -59,7 +59,6 @@ export async function PUT(
         fraud_rules: JSON.parse((formData.get('fraud_rules') as string) || '{}'),
         required_evidence: JSON.parse((formData.get('required_evidence') as string) || '[]'),
         form_fields: JSON.parse((formData.get('form_fields') as string) || '[]'),
-        flexible_urls: JSON.parse((formData.get('flexible_urls') as string) || '[]'),
         brand_logo_url: formData.get('brand_logo_url') as string || null,
       };
 
@@ -103,7 +102,6 @@ export async function PUT(
         code: body.code?.toUpperCase(),
         fee_per_activation: body.fee_per_activation,
         brand_logo_url: body.brand_logo_url || null,
-        flexible_urls: body.flexible_urls || [],
         fraud_rules: JSON.stringify(fraud_rules),
         allowed_regions: JSON.stringify(body.allowed_regions || []),
         required_evidence: JSON.stringify(body.required_evidence || []),

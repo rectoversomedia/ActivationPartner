@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
       allowed_regions: typeof c.allowed_regions === 'string' ? JSON.parse(c.allowed_regions) : (c.allowed_regions || []),
       required_evidence: typeof c.required_evidence === 'string' ? JSON.parse(c.required_evidence) : (c.required_evidence || []),
       form_fields: typeof c.form_fields === 'string' ? JSON.parse(c.form_fields) : (c.form_fields || []),
-      flexible_urls: typeof c.flexible_urls === 'string' ? JSON.parse(c.flexible_urls) : (c.flexible_urls || []),
     }));
 
     return NextResponse.json({ data: campaigns, total: count || 0 });
@@ -118,7 +117,6 @@ export async function POST(request: NextRequest) {
         code: body.code.toUpperCase(),
         fee_per_activation: body.fee_per_activation || 5000,
         brand_logo_url: body.brand_logo_url || null,
-        flexible_urls: body.flexible_urls || [],
         fraud_rules: JSON.stringify(fraud_rules),
         allowed_regions: JSON.stringify(body.allowed_regions || []),
         required_evidence: JSON.stringify(required_evidence),
