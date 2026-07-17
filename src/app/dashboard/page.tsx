@@ -7,8 +7,8 @@ import {
   Funnel, CheckCircle, XCircle, Clock, Warning, Eye, User,
   Flag, Phone, Envelope, Camera, ChartBar, Users, Shield, FileText,
   Plus, ShieldCheck, WarningCircle, ShieldSlash, Question, MagnifyingGlass,
-  Download, Trash, Pencil, ChatText, X, Filter, RefreshCw, FileArrowDown,
-  TrendUp, TrendDown, Activity, Fingerprint, Robot, MapPin, WifiHigh, DeviceMobile
+  Download, Trash, Pencil, ChatText, X, ArrowClockwise, FileArrowDown,
+  TrendUp, TrendDown, Fingerprint, Robot, MapPin, WifiHigh, DeviceMobile
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -54,7 +54,7 @@ const FRAUD_CATEGORIES = {
   location: { icon: MapPin, color: 'purple', label: 'Location' },
   behavior: { icon: Robot, color: 'amber', label: 'Behavior' },
   device: { icon: DeviceMobile, color: 'rose', label: 'Device/IP' },
-  velocity: { icon: Activity, color: 'cyan', label: 'Velocity' },
+  velocity: { icon: Clock, color: 'cyan', label: 'Velocity' },
 };
 
 // Parse fraud flags from JSON
@@ -284,7 +284,7 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" onClick={() => fetchData()} className="border-slate-300">
-                <RefreshCw size={16} className="mr-2" /> Refresh
+                <ArrowClockwise size={16} className="mr-2" /> Refresh
               </Button>
               <Button variant="outline" size="sm" onClick={() => exportToCSV(filteredSubmissions)} className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
                 <FileArrowDown size={16} className="mr-2" /> Export CSV
@@ -493,7 +493,7 @@ export default function DashboardPage() {
           <CardContent className="p-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Filter size={16} /> Filter:
+                <Funnel size={16} /> Filter:
               </div>
               <div className="flex flex-wrap gap-2">
                 {(['all', 'valid', 'pending', 'invalid', 'fraud'] as StatusFilter[]).map((filter) => (

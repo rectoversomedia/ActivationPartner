@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   Calendar, Flag, UserCircle, User, Envelope, Phone, Camera, Check,
   DeviceMobile, MapPin, Clock, Fingerprint, X, Upload, Spinner, ShieldCheck,
-  Image as ImageIcon, Info, AlertTriangle, Download
+  Image as ImageIcon, Info, Download, Warning
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Input, Label } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -810,7 +810,7 @@ export default function SubmitPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <AlertTriangle size={20} className={isSuspicious ? 'text-amber-500' : 'text-emerald-500'} />
+                    <Warning size={20} className={isSuspicious ? 'text-amber-500' : 'text-emerald-500'} />
                     <div className="flex-1">
                       <p className="text-xs text-slate-500">Device Fingerprint</p>
                       <p className="text-sm font-medium text-slate-700">

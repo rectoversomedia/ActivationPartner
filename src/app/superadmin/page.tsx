@@ -4,14 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Gear, Users, Flag, Shield, Check, X, Plus, Trash, Pencil,
+  Gear, Users, Flag, Shield, Check, X, Plus, Pencil,
   CaretLeft, CaretRight, CheckCircle, XCircle, Warning, Eye,
   MapPin, DeviceMobile, Clock, Phone, Envelope, User,
   FloppyDisk, List, Buildings, UserCircle, Camera, Copy,
   WifiHigh, Desktop, Timer, MapTrifold, DotsSixVertical, TextT,
   SignOut, UserCircleCheck, ArrowLeft, Robot, Fingerprint,
-  Info, Image as ImageIcon, CheckSquare, Square, Trash3,
-  Download, Link as LinkIcon, ImageSquare
+  Info, Image as ImageIcon, CheckSquare, Square, Trash,
+  Download, LinkSimple, ImageSquare
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -663,7 +663,7 @@ export default function SuperAdminPage() {
                     {/* Form URL */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        <LinkIcon size={14} className="text-blue-500" />
+                        <LinkSimple size={14} className="text-blue-500" />
                         Form URL
                       </label>
                       <Input
@@ -765,7 +765,7 @@ export default function SuperAdminPage() {
                       }}
                       className="text-red-500 hover:bg-red-50"
                     >
-                      <Trash3 size={18} />
+                      <Trash size={18} />
                     </Button>
                   </div>
                 ))}
@@ -1121,7 +1121,7 @@ export default function SuperAdminPage() {
                         }}
                         className="text-red-500 hover:bg-red-50"
                       >
-                        <Trash3 size={18} />
+                        <Trash size={18} />
                       </Button>
                     </div>
                     {field.type === 'select' && (
