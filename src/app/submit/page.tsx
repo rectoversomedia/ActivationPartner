@@ -540,10 +540,8 @@ export default function SubmitPage() {
 
       setSubmissionCode(result.submissionCode);
       setFraudResult({
-        score: result.fraudScore,
-        decision: result.fraudDecision,
-        riskLevel: result.fraudRiskLevel,
-        flags: result.fraudFlags,
+        fraudDecision: result.fraudDecision,
+        fraudFlags: result.fraudFlags || [],
       });
       setShowSuccess(true);
     } catch (error) {
@@ -880,10 +878,10 @@ export default function SubmitPage() {
                 <Check size={32} className="text-emerald-600" />
               </div>
               <h2 className="text-xl font-bold text-slate-900 mb-2">
-                {fraudResult?.decision === 'block' ? 'Submission Ditolak!' : 'Berhasil!'}
+                {fraudResult?.fraudDecision === 'fraud' ? 'Submission Terdetekai Fraud!' : 'Berhasil!'}
               </h2>
               <p className="text-slate-500 mb-4">
-                {fraudResult?.decision === 'block'
+                {fraudResult?.fraudDecision === 'fraud'
                   ? 'Submission terblokir karena terdeteksi fraud'
                   : 'Submission berhasil disimpan'}
               </p>
@@ -893,7 +891,7 @@ export default function SubmitPage() {
                 <p className="text-xl font-mono font-bold text-blue-600">{submissionCode}</p>
               </div>
 
-              {/* Fraud Result */}
+              {/* Fraud Result - Simple Mode */}
               {fraudResult && (
                 <div className="p-4 rounded-xl bg-slate-50 mb-6 text-left">
                   <div className="flex items-center justify-between mb-3">
@@ -902,36 +900,34 @@ export default function SubmitPage() {
                       Fraud Check Result
                     </p>
                     <span className={cn(
-                      'px-2 py-1 rounded-full text-xs font-bold',
-                      fraudResult.riskLevel === 'low' ? 'bg-emerald-100 text-emerald-700' :
-                      fraudResult.riskLevel === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      fraudResult.riskLevel === 'high' ? 'bg-orange-100 text-orange-700' :
-                      'bg-red-100 text-red-700'
+                      'px-3 py-1 rounded-full text-xs font-bold',
+                      fraudResult.fraudDecision === 'valid'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-red-100 text-red-700'
                     )}>
-                      {fraudResult.riskLevel?.toUpperCase() || 'UNKNOWN'}
+                      {fraudResult.fraudDecision === 'valid' ? 'VALID' : 'FRAUD'}
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Fraud Score</span>
-                      <span className="font-semibold">{fraudResult.score}/100</span>
+
+                  {/* Flags/Reasons */}
+                  {fraudResult.fraudFlags && fraudResult.fraudFlags.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 font-semibold">Alasan:</p>
+                      {fraudResult.fraudFlags.map((flag: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2 p-2 bg-red-50 rounded-lg border border-red-100">
+                          <span className="text-red-500 mt-0.5">⚠️</span>
+                          <p className="text-xs text-red-700">{flag.reason}</p>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Decision</span>
-                      <span className="font-semibold">{fraudResult.decision}</span>
+                  )}
+
+                  {fraudResult.fraudDecision === 'valid' && (
+                    <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <span className="text-emerald-500">✓</span>
+                      <p className="text-xs text-emerald-700">Tidak ada indikasi fraud - submission valid</p>
                     </div>
-                    {fraudResult.flags && fraudResult.flags.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-slate-200">
-                        <p className="text-xs text-slate-500 mb-1">Flags:</p>
-                        {fraudResult.flags.slice(0, 3).map((flag: any, i: number) => (
-                          <p key={i} className="text-xs text-slate-600">• {flag.reason}</p>
-                        ))}
-                        {fraudResult.flags.length > 3 && (
-                          <p className="text-xs text-slate-500">+{fraudResult.flags.length - 3} more</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -943,7 +939,7 @@ export default function SubmitPage() {
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                {fraudResult?.decision === 'block' ? 'Tutup' : 'Submit Lagi'}
+                {fraudResult?.fraudDecision === 'fraud' ? 'OK' : 'Submit Lagi'}
               </Button>
             </CardContent>
           </Card>
