@@ -54,6 +54,7 @@ interface EvidenceItem {
   id: string;
   label: string;
   required: boolean;
+  example_image_url?: string;
 }
 
 interface FraudRuleConfig {
@@ -170,7 +171,7 @@ interface CampaignFormData {
   brand_logo_file?: File | null;
   flexible_urls: FlexibleUrl[];
   fraud_rules: FraudRuleConfig;
-  required_evidence: EvidenceItem[];
+  required_evidence: (EvidenceItem & { example_image_file?: File | null })[];
   form_fields: FormField[];
   is_active: boolean;
 }
@@ -378,10 +379,19 @@ export default function SuperAdminPage() {
       formData.append('fee_per_activation', editingCampaign.fee_per_activation.toString());
       formData.append('is_active', editingCampaign.is_active.toString());
       formData.append('fraud_rules', JSON.stringify(editingCampaign.fraud_rules));
-      formData.append('required_evidence', JSON.stringify(editingCampaign.required_evidence));
       formData.append('form_fields', JSON.stringify(editingCampaign.form_fields));
       formData.append('flexible_urls', JSON.stringify(editingCampaign.flexible_urls || []));
       formData.append('allowed_regions', JSON.stringify([]));
+
+      // Process evidence with example images
+      const processedEvidence = editingCampaign.required_evidence.map((ev, idx) => {
+        if (ev.example_image_file) {
+          formData.append(`example_image_${idx}`, ev.example_image_file);
+          return { ...ev, example_image_url: `local_${idx}` };
+        }
+        return ev;
+      });
+      formData.append('required_evidence', JSON.stringify(processedEvidence));
 
       if (editingCampaign.brand_logo_file) {
         formData.append('brand_logo', editingCampaign.brand_logo_file);
@@ -567,6 +577,31 @@ export default function SuperAdminPage() {
     setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
   };
 
+  const handleExampleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingCampaign) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const newEvidence = [...editingCampaign.required_evidence];
+      newEvidence[index] = {
+        ...newEvidence[index],
+        example_image_file: file,
+        example_image_url: URL.createObjectURL(file),
+      };
+      setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+    }
+  };
+
+  const removeExampleImage = (index: number) => {
+    if (!editingCampaign) return;
+    const newEvidence = [...editingCampaign.required_evidence];
+    newEvidence[index] = {
+      ...newEvidence[index],
+      example_image_file: null,
+      example_image_url: '',
+    };
+    setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
+  };
+
   // Count fraud rules enabled
   const countFraudRulesEnabled = () => {
     if (!editingCampaign) return { enabled: 0, total: 0 };
@@ -684,23 +719,43 @@ export default function SuperAdminPage() {
           <SectionCard title="Evidence Requirements" icon={Camera} color="from-purple-500 to-purple-600">
             <div className="space-y-3">
               {editingCampaign.required_evidence.map((evidence, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                  <button
-                    onClick={() => updateEvidence(index, { required: !evidence.required })}
-                    className={evidence.required ? 'text-emerald-600' : 'text-slate-300'}
-                  >
-                    {evidence.required ? <CheckFat size={24} weight="fill" /> : <Square size={24} />}
-                  </button>
-                  <input
-                    type="text"
-                    value={evidence.label}
-                    onChange={(e) => updateEvidence(index, { label: e.target.value })}
-                    placeholder="Evidence label"
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => removeEvidence(index)} className="text-red-500">
-                    <Trash size={16} />
-                  </Button>
+                <div key={index} className="p-3 bg-slate-50 rounded-lg space-y-3">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => updateEvidence(index, { required: !evidence.required })}
+                      className={evidence.required ? 'text-emerald-600' : 'text-slate-300'}
+                    >
+                      {evidence.required ? <CheckFat size={24} weight="fill" /> : <Square size={24} />}
+                    </button>
+                    <input
+                      type="text"
+                      value={evidence.label}
+                      onChange={(e) => updateEvidence(index, { label: e.target.value })}
+                      placeholder="Evidence label"
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => removeEvidence(index)} className="text-red-500">
+                      <Trash size={16} />
+                    </Button>
+                  </div>
+                  {/* Example Image Upload */}
+                  <div className="ml-9">
+                    <p className="text-xs text-slate-500 mb-2">Example Image (for sales reference)</p>
+                    {evidence.example_image_url ? (
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                        <img src={evidence.example_image_url} alt="Example" className="h-20 w-auto object-contain rounded" />
+                        <Button variant="ghost" size="sm" onClick={() => removeExampleImage(index)} className="text-red-500 h-auto py-1">
+                          <Trash size={14} className="mr-1" /> Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center p-3 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-all">
+                        <ImageIcon size={20} className="text-slate-400 mb-1" />
+                        <span className="text-xs text-slate-500">Upload example</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleExampleImageUpload(index, e)} className="hidden" />
+                      </label>
+                    )}
+                  </div>
                 </div>
               ))}
               <Button variant="outline" onClick={addEvidence} className="w-full border-dashed">

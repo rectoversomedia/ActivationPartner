@@ -29,6 +29,7 @@ interface EvidenceItem {
   id: string;
   label: string;
   required: boolean;
+  example_image_url?: string;
 }
 
 interface Campaign {
@@ -758,6 +759,16 @@ export default function SubmitPage() {
                           <div className="flex-1">
                             <p className="font-semibold text-slate-900">{evidence.label}</p>
                             {evidence.required && <p className="text-xs text-red-500">Wajib</p>}
+                            {/* Example Image */}
+                            {evidence.example_image_url && (
+                              <button
+                                type="button"
+                                onClick={() => window.open(evidence.example_image_url, '_blank')}
+                                className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
+                              >
+                                <ImageIcon size={12} /> Lihat contoh
+                              </button>
+                            )}
                           </div>
 
                           {/* File size indicator */}

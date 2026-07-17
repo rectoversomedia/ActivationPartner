@@ -75,16 +75,27 @@ export async function POST(request: NextRequest) {
             body.brand_logo_url = urlData.publicUrl;
           } else {
             // Fallback: convert to base64 data URL
-            console.log('Storage upload failed, using base64:', uploadError);
             const base64 = Buffer.from(buffer).toString('base64');
             body.brand_logo_url = `data:${logoFile.type};base64,${base64}`;
           }
         } catch (storageError) {
-          console.log('Storage error, using base64:', storageError);
+          // Fallback: convert to base64 data URL
           const base64 = Buffer.from(buffer).toString('base64');
           body.brand_logo_url = `data:${logoFile.type};base64,${base64}`;
         }
       }
+
+      // Handle example images for evidence
+      const evidenceList = [...body.required_evidence];
+      for (let idx = 0; idx < evidenceList.length; idx++) {
+        const exampleFile = formData.get(`example_image_${idx}`) as File | null;
+        if (exampleFile && exampleFile.size > 0) {
+          const buffer = await exampleFile.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString('base64');
+          evidenceList[idx] = { ...evidenceList[idx], example_image_url: `data:${exampleFile.type};base64,${base64}` };
+        }
+      }
+      body.required_evidence = evidenceList;
     } else {
       body = await request.json();
     }
