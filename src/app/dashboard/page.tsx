@@ -302,86 +302,38 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Stats Grid - 3 columns symmetrical */}
+        {/* Stats Grid - 3 cards only */}
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {/* Total */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 mb-2">
-                <FileText size={20} className="text-white" />
+          <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg">
+            <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm mb-3">
+                <FileText size={28} className="text-white" />
               </div>
-              <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
-              <p className="text-xs text-slate-500 mt-1">Total</p>
+              <p className="text-4xl font-bold">{stats.total}</p>
+              <p className="text-sm text-white/80 mt-1">Total</p>
             </CardContent>
           </Card>
 
           {/* Valid */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30 mb-2">
-                <CheckCircle size={20} weight="fill" className="text-white" />
+          <Card className="bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg">
+            <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm mb-3">
+                <CheckCircle size={28} weight="fill" className="text-white" />
               </div>
-              <p className="text-3xl font-bold text-emerald-600">{stats.valid}</p>
-              <p className="text-xs text-slate-500 mt-1">Valid</p>
-            </CardContent>
-          </Card>
-
-          {/* Pending */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30 mb-2">
-                <Clock size={20} weight="fill" className="text-white" />
-              </div>
-              <p className="text-3xl font-bold text-amber-600">{stats.pending}</p>
-              <p className="text-xs text-slate-500 mt-1">Pending</p>
+              <p className="text-4xl font-bold">{stats.valid}</p>
+              <p className="text-sm text-white/80 mt-1">Valid</p>
             </CardContent>
           </Card>
 
           {/* Fraud */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 mb-2">
-                <Shield size={20} weight="fill" className="text-white" />
+          <Card className="bg-gradient-to-br from-red-600 to-red-700 text-white shadow-lg">
+            <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm mb-3">
+                <Shield size={28} weight="fill" className="text-white" />
               </div>
-              <p className="text-3xl font-bold text-rose-600">{stats.fraud}</p>
-              <p className="text-xs text-slate-500 mt-1">Fraud</p>
-            </CardContent>
-          </Card>
-
-          {/* Valid Rate */}
-          <Card className="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 text-white shadow-xl shadow-purple-500/25">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-sm mb-2">
-                <ChartBar size={20} className="text-white" />
-              </div>
-              <p className="text-3xl font-bold">{validRate}%</p>
-              <p className="text-xs text-white/70 mt-1">Valid Rate</p>
-              <div className="w-full h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${validRate}%` }} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Fraud Detail - 2 columns symmetrical */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-sm border border-emerald-500/30 mb-2">
-                <ShieldCheck size={20} weight="fill" className="text-emerald-400" />
-              </div>
-              <p className="text-2xl font-bold">{stats.valid}</p>
-              <p className="text-xs text-slate-300 mt-1">Valid Submission</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/20 backdrop-blur-sm border border-red-500/30 mb-2">
-                <ShieldSlash size={20} weight="fill" className="text-red-400" />
-              </div>
-              <p className="text-2xl font-bold">{stats.fraud}</p>
-              <p className="text-xs text-slate-300 mt-1">Fraud Submission</p>
+              <p className="text-4xl font-bold">{stats.fraud}</p>
+              <p className="text-sm text-white/80 mt-1">Fraud</p>
             </CardContent>
           </Card>
         </div>
@@ -436,13 +388,11 @@ export default function DashboardPage() {
                 <Funnel size={16} /> Filter:
               </div>
               <div className="flex flex-wrap gap-2">
-                {(['all', 'valid', 'pending', 'invalid', 'fraud'] as StatusFilter[]).map((filter) => (
+                {(['all', 'valid', 'fraud'] as StatusFilter[]).map((filter) => (
                   <button key={filter} onClick={() => setStatusFilter(filter)} className={cn(
                     'px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 shadow-sm',
                     statusFilter === filter
                       ? filter === 'valid' ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30' :
-                        filter === 'pending' ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-amber-500/30' :
-                        filter === 'invalid' ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/30' :
                         filter === 'fraud' ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-rose-500/30' :
                         'bg-gradient-to-r from-slate-700 to-slate-800 text-white shadow-slate-500/30'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -702,309 +652,7 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {/* Fraud System View */}
-        {view === 'fraud' && (
-          <div className="space-y-6">
-            <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
-              <div className="p-8 border-b border-white/10 bg-gradient-to-r from-rose-500/10 to-orange-500/10">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/20 to-orange-500/20 backdrop-blur-sm border border-rose-500/30">
-                    <Shield size={32} weight="fill" className="text-rose-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-rose-400 to-orange-400 bg-clip-text text-transparent">Fraud Detection System v2</h2>
-                    <p className="text-slate-300">AI-powered detection with behavioral analysis & device fingerprinting</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { icon: Robot, title: 'Bot Detection', desc: 'Typing patterns, time-on-page, mouse movements', color: 'from-emerald-500', colorBg: 'bg-emerald-500/20' },
-                  { icon: DeviceMobile, title: 'Device Farm', desc: 'One device, multiple different customer accounts', color: 'from-blue-500', colorBg: 'bg-blue-500/20' },
-                  { icon: Fingerprint, title: 'Fingerprinting', desc: 'Canvas, WebGL, screen & audio fingerprinting', color: 'from-purple-500', colorBg: 'bg-purple-500/20' },
-                  { icon: MapPin, title: 'Location Clustering', desc: 'GPS clustering to detect suspicious patterns', color: 'from-amber-500', colorBg: 'bg-amber-500/20' },
-                ].map((item, i) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={i} className="p-5 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all">
-                      <div className={cn('w-12 h-12 rounded-xl bg-gradient-to-br mb-3 flex items-center justify-center', item.color, item.colorBg)}>
-                        <Icon size={24} className="text-white" />
-                      </div>
-                      <h3 className="font-bold text-white mb-1">{item.title}</h3>
-                      <p className="text-xs text-slate-400">{item.desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="p-6 border-t border-white/10 bg-black/20">
-                <h3 className="font-bold text-white mb-4">Fraud Score Breakdown</h3>
-                <div className="space-y-2">
-                  {[
-                    { range: '0-24', label: 'Low Risk', color: 'from-emerald-500', decision: 'Auto Allow', desc: 'Submission passed all checks' },
-                    { range: '25-49', label: 'Medium Risk', color: 'from-amber-500', decision: 'Manual Review', desc: 'Needs QC team verification' },
-                    { range: '50-74', label: 'High Risk', color: 'from-orange-500', decision: 'Flag for QC', desc: 'Flagged for quality control' },
-                    { range: '75-100', label: 'Critical', color: 'from-red-500', decision: 'Auto Block', desc: 'Automatically blocked' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
-                      <div className="flex items-center gap-3">
-                        <div className={cn('w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center text-white font-bold text-xs', item.color)}>
-                          {item.range.split('-')[0]}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-white text-sm">{item.label}</p>
-                          <p className="text-xs text-slate-400">{item.desc}</p>
-                        </div>
-                      </div>
-                      <span className={cn('px-3 py-1 rounded-lg text-xs font-bold', item.color.replace('from-', 'bg-') + '/20 text-' + item.color.split('-')[1] + '-300')}>
-                        {item.decision}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-      </main>
-
-      {/* Detail Modal */}
-      {selectedSubmission && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedSubmission(null)}>
-          <Card className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Submission Detail</h2>
-                  <p className="text-slate-500 font-mono">{selectedSubmission.submission_code}</p>
-                </div>
-                <button onClick={() => setSelectedSubmission(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
-
-              {/* Fraud Score */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mb-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Shield size={20} className="text-blue-400" />
-                    <span className="font-semibold">Fraud Detection</span>
-                  </div>
-                  {getFraudDecisionBadge(selectedSubmission.fraud_decision || 'allow')}
-                </div>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-slate-300">Fraud Score</span>
-                      <span className={cn('font-bold text-lg', getRiskStyles(selectedSubmission.fraud_score || 0).color.replace('text-', 'text-'))}>
-                        {selectedSubmission.fraud_score || 0}/100
-                      </span>
-                    </div>
-                    <div className="w-full h-4 bg-white/20 rounded-full overflow-hidden shadow-inner">
-                      <div className={cn('h-full rounded-full transition-all shadow-lg', getRiskStyles(selectedSubmission.fraud_score || 0).bg)}
-                        style={{ width: `${selectedSubmission.fraud_score || 0}%` }} />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{getRiskStyles(selectedSubmission.fraud_score || 0).label} Risk</p>
-                  </div>
-                </div>
-
-                {/* Fraud Flags with explanations */}
-                {(() => {
-                  const flags = parseFraudFlags(selectedSubmission.fraud_flags);
-                  return flags.length > 0 ? (
-                    <div className="mt-4 pt-4 border-t border-white/20">
-                      <p className="text-xs text-slate-300 mb-3 font-semibold">Detection Indicators:</p>
-                      <div className="space-y-2">
-                        {flags.map((flag, i) => {
-                          const cat = FRAUD_CATEGORIES[flag.category as keyof typeof FRAUD_CATEGORIES];
-                          const Icon = cat?.icon || Warning;
-                          return (
-                            <div key={i} className={cn(
-                              'p-3 rounded-xl backdrop-blur-sm',
-                              flag.severity === 'critical' ? 'bg-red-500/20 border border-red-500/30' :
-                              flag.severity === 'high' ? 'bg-orange-500/20 border border-orange-500/30' :
-                              flag.severity === 'medium' ? 'bg-amber-500/20 border border-amber-500/30' :
-                              'bg-slate-500/20 border border-slate-500/30'
-                            )}>
-                              <div className="flex items-start gap-2">
-                                <Icon size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-semibold text-white text-sm">{flag.flag.replace(/_/g, ' ')}</span>
-                                    {getSeverityBadge(flag.severity)}
-                                  </div>
-                                  <p className="text-xs text-white/70">{flag.reason}</p>
-                                  {flag.metadata && Object.keys(flag.metadata).length > 0 && (
-                                    <p className="text-xs text-white/50 mt-1">
-                                      {Object.entries(flag.metadata).map(([k, v]) => `${k}: ${v}`).join(' | ')}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-4 pt-4 border-t border-white/20 flex items-center gap-2 text-emerald-400">
-                      <ShieldCheck size={20} />
-                      <span className="text-sm">No fraud indicators detected</span>
-                    </div>
-                  );
-                })()}
-
-                {/* QC Remarks */}
-                {selectedSubmission.fraud_remarks && (
-                  <div className="mt-4 pt-4 border-t border-white/20">
-                    <p className="text-xs text-slate-300 mb-2 font-semibold">QC Remarks (Proof to Sales):</p>
-                    <p className="text-sm text-white/80 bg-white/10 p-3 rounded-lg">{selectedSubmission.fraud_remarks}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Info Grid */}
-              <div className="grid sm:grid-cols-2 gap-4 mb-4">
-                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100">
-                  <p className="text-xs text-blue-600 font-semibold mb-2">Customer</p>
-                  <p className="font-bold text-slate-900">{selectedSubmission.customer_name}</p>
-                  <p className="text-sm text-slate-600">{selectedSubmission.customer_phone}</p>
-                  {selectedSubmission.customer_email && (
-                    <p className="text-xs text-slate-500">{selectedSubmission.customer_email}</p>
-                  )}
-                </div>
-                <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
-                  <p className="text-xs text-emerald-600 font-semibold mb-2">Sales Team</p>
-                  <p className="font-bold text-slate-900">{selectedSubmission.sales_name}</p>
-                  <p className="text-sm text-slate-600">PIC: {selectedSubmission.pic_name}</p>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold mb-2">Device</p>
-                  <p className="text-sm text-slate-700">{selectedSubmission.device_info || 'N/A'}</p>
-                  <p className="text-xs text-slate-400 mt-1">IP: {selectedSubmission.ip_address || 'N/A'}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold mb-2">Location</p>
-                  <p className="text-sm text-slate-700">
-                    {selectedSubmission.gps_lat && selectedSubmission.gps_lng
-                      ? `${selectedSubmission.gps_lat.toFixed(6)}, ${selectedSubmission.gps_lng.toFixed(6)}`
-                      : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
-                <span>Created: {new Date(selectedSubmission.created_at).toLocaleString('id-ID')}</span>
-                <span>Campaign: {selectedSubmission.campaign_name}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Fraud Review Modal */}
-      {showReviewModal && reviewSubmission && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowReviewModal(false)}>
-          <Card className="bg-white w-full max-w-lg shadow-2xl rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Fraud Review & Remarks</h2>
-                  <p className="text-sm text-slate-500 font-mono">{reviewSubmission.submission_code}</p>
-                </div>
-                <button onClick={() => setShowReviewModal(false)} className="p-2 hover:bg-slate-100 rounded-xl">
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
-
-              {/* Fraud Summary */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  {getFraudDecisionBadge(reviewSubmission.fraud_decision || 'allow')}
-                  <span className="font-bold text-lg">{reviewSubmission.fraud_score || 0}/100</span>
-                </div>
-                {(() => {
-                  const flags = parseFraudFlags(reviewSubmission.fraud_flags);
-                  return flags.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-xs text-slate-500 font-semibold">Indicators:</p>
-                      {flags.map((flag, i) => (
-                        <p key={i} className="text-sm text-slate-700">• {flag.reason}</p>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Button
-                  variant="outline"
-                  onClick={() => saveFraudReview('allow')}
-                  disabled={isSavingReview}
-                  className="flex-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                >
-                  <ShieldCheck size={16} className="mr-1" /> Allow
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => saveFraudReview('review')}
-                  disabled={isSavingReview}
-                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50"
-                >
-                  <Question size={16} className="mr-1" /> Review
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => saveFraudReview('flag')}
-                  disabled={isSavingReview}
-                  className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50"
-                >
-                  <WarningCircle size={16} className="mr-1" /> Flag
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => saveFraudReview('block')}
-                  disabled={isSavingReview}
-                  className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  <ShieldSlash size={16} className="mr-1" /> Block
-                </Button>
-              </div>
-
-              {/* Remarks Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  QC Remarks <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={reviewRemarks}
-                  onChange={(e) => setReviewRemarks(e.target.value)}
-                  placeholder="Enter remarks/proof for the sales team (e.g., 'Duplicate phone number detected with submission ACT-XXXXX')"
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
-                />
-                <p className="text-xs text-slate-500 mt-1">This will be visible to the sales team as proof/justification</p>
-              </div>
-
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setShowReviewModal(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => saveFraudReview('allow')}
-                  isLoading={isSavingReview}
-                  disabled={!reviewRemarks.trim()}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
-                >
-                  <ChatText size={18} className="mr-2" /> Save Review
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
+</main>
+</div>
+);
 }
