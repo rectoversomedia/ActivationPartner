@@ -604,19 +604,19 @@ export default function SubmitPage() {
         <form onSubmit={handleSubmit} className="max-w-md mx-auto px-4 pb-8">
           {/* Brand Logo - Show when campaign is selected */}
           {selectedCampaign && (
-            <div className="mb-8 flex flex-col items-center">
+            <div className="mb-6 flex flex-col items-center">
               {selectedCampaign.brand_logo_url ? (
                 <img
                   src={selectedCampaign.brand_logo_url}
                   alt={selectedCampaign.name}
-                  className="h-[200px] w-auto object-contain"
+                  className="h-[75px] w-auto object-contain"
                 />
               ) : (
-                <div className="h-[200px] w-[200px] bg-slate-100 rounded-2xl flex items-center justify-center">
-                  <span className="text-6xl font-bold text-slate-400">{selectedCampaign.name[0]}</span>
+                <div className="h-[75px] w-[75px] bg-slate-100 rounded-2xl flex items-center justify-center">
+                  <span className="text-3xl font-bold text-slate-400">{selectedCampaign.name[0]}</span>
                 </div>
               )}
-              <h2 className="mt-4 text-xl font-bold text-slate-800">{selectedCampaign.name}</h2>
+              <h2 className="mt-3 text-lg font-bold text-slate-800">{selectedCampaign.name}</h2>
             </div>
           )}
           <Card className="bg-white border border-slate-200 shadow-sm">
