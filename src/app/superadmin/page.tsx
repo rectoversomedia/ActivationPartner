@@ -159,7 +159,7 @@ const FORM_FIELD_SOURCES = [
   { value: 'campaigns', label: 'From Campaigns' },
 ];
 
-type TabType = 'campaigns' | 'sales' | 'pics' | 'settings';
+type TabType = 'dashboard' | 'campaigns' | 'sales' | 'pics' | 'settings';
 
 interface CampaignFormData {
   id?: string;
@@ -253,11 +253,16 @@ const AlertBadge = ({ type, count }: { type: 'warning' | 'error' | 'info'; count
 };
 
 export default function SuperAdminPage() {
-  const [activeTab, setActiveTab] = React.useState<TabType>('campaigns');
+  const [activeTab, setActiveTab] = React.useState<TabType>('dashboard');
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [salesList, setSalesList] = React.useState<SalesPerson[]>([]);
   const [picsList, setPicsList] = React.useState<PIC[]>([]);
+  const [submissions, setSubmissions] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [statusFilter, setStatusFilter] = React.useState<string>('all');
+  const [campaignFilter, setCampaignFilter] = React.useState<string>('all');
+  const [salesFilter, setSalesFilter] = React.useState<string>('all');
+  const [selectedSubmission, setSelectedSubmission] = React.useState<any>(null);
   const [showFullEditor, setShowFullEditor] = React.useState(false);
   const [editingCampaign, setEditingCampaign] = React.useState<CampaignFormData | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -278,20 +283,33 @@ export default function SuperAdminPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [campRes, masterRes] = await Promise.all([
+      const [campRes, masterRes, subRes] = await Promise.all([
         fetch('/api/campaigns'),
         fetch('/api/master-data?type=all'),
+        fetch('/api/submissions?limit=1000'),
       ]);
       const campData = await campRes.json();
       const masterData = await masterRes.json();
+      const subData = await subRes.json();
 
       if (campData.data) setCampaigns(campData.data);
       if (masterData.sales) setSalesList(masterData.sales);
       if (masterData.pics) setPicsList(masterData.pics);
+      if (subData.data) setSubmissions(subData.data);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const deleteSubmission = async (id: string) => {
+    if (!confirm('Hapus submission ini?')) return;
+    try {
+      await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
+      await loadData();
+    } catch (error) {
+      console.error('Delete error:', error);
     }
   };
 
@@ -1116,18 +1134,23 @@ export default function SuperAdminPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Tabs */}
-        <div className="flex justify-center gap-2 mb-6">
+        <div className="flex justify-center gap-2 mb-6 flex-wrap">
           {[
+            { id: 'dashboard' as TabType, label: 'Dashboard', icon: ChartBar },
             { id: 'campaigns' as TabType, label: 'Campaigns', icon: Flag, count: campaigns.length },
+            { id: 'sales' as TabType, label: 'Sales', icon: Users, count: salesList.length },
+            { id: 'pics' as TabType, label: 'PICs', icon: UserCircle, count: picsList.length },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn(
-                'flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm',
+                'flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm',
                 activeTab === tab.id ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
               )}>
                 <Icon size={18} /> {tab.label}
-                <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', activeTab === tab.id ? 'bg-white/20' : 'bg-slate-100')}>{tab.count}</span>
+                {tab.count !== undefined && (
+                  <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', activeTab === tab.id ? 'bg-white/20' : 'bg-slate-100')}>{tab.count}</span>
+                )}
               </button>
             );
           })}
@@ -1141,6 +1164,258 @@ export default function SuperAdminPage() {
           </CardContent></Card>
         ) : (
           <>
+            {/* DASHBOARD */}
+            {activeTab === 'dashboard' && (() => {
+              const stats = {
+                total: submissions.length,
+                valid: submissions.filter(s => s.status === 'valid').length,
+                pending: submissions.filter(s => s.status === 'pending').length,
+                fraud: submissions.filter(s => s.status === 'fraud').length,
+              };
+              const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
+
+              // Stats per campaign
+              const campaignStats = campaigns.map(c => {
+                const cSubs = submissions.filter(s => s.campaign_id === c.id);
+                return {
+                  ...c,
+                  total: cSubs.length,
+                  valid: cSubs.filter(s => s.status === 'valid').length,
+                  fraud: cSubs.filter(s => s.status === 'fraud').length,
+                };
+              });
+
+              // Stats per sales
+              const salesStats = salesList.map(s => {
+                const sSubs = submissions.filter(su => su.sales_name === s.name);
+                return {
+                  ...s,
+                  total: sSubs.length,
+                  valid: sSubs.filter(su => su.status === 'valid').length,
+                  fraud: sSubs.filter(su => su.status === 'fraud').length,
+                };
+              });
+
+              const filteredSubs = submissions.filter(s => {
+                if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+                if (campaignFilter !== 'all' && s.campaign_id !== campaignFilter) return false;
+                if (salesFilter !== 'all' && s.sales_name !== salesFilter) return false;
+                return true;
+              });
+
+              return (
+                <div className="space-y-6">
+                  {/* Stats Cards */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg">
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-xl bg-white/20 mb-3"><ChartBar size={28} className="text-white" /></div>
+                        <p className="text-4xl font-bold">{stats.total}</p>
+                        <p className="text-sm text-white/80 mt-1">Total</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg">
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-xl bg-white/20 mb-3"><CheckCircle size={28} weight="fill" className="text-white" /></div>
+                        <p className="text-4xl font-bold">{stats.valid}</p>
+                        <p className="text-sm text-white/80 mt-1">Valid ({validRate}%)</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-rose-600 to-rose-700 text-white shadow-lg">
+                      <CardContent className="p-5 flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-xl bg-white/20 mb-3"><Shield size={28} weight="fill" className="text-white" /></div>
+                        <p className="text-4xl font-bold">{stats.fraud}</p>
+                        <p className="text-sm text-white/80 mt-1">Fraud</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Per Campaign Stats */}
+                  <Card className="bg-white">
+                    <CardContent className="p-4">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Flag size={18} className="text-purple-500" /> Breakdown per Campaign</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50">
+                              <th className="px-4 py-2 text-left font-semibold text-slate-600">Campaign</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Total</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Valid</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Fraud</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {campaignStats.map(c => (
+                              <tr key={c.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
+                                <td className="px-4 py-3 text-center font-bold">{c.total}</td>
+                                <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{c.valid}</td>
+                                <td className="px-4 py-3 text-center text-rose-600 font-semibold">{c.fraud}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={cn('px-2 py-1 rounded-lg text-xs font-bold',
+                                    c.total > 0 && (c.valid / c.total) >= 0.9 ? 'bg-emerald-100 text-emerald-700' :
+                                    c.total > 0 && (c.valid / c.total) >= 0.7 ? 'bg-amber-100 text-amber-700' :
+                                    'bg-red-100 text-red-700'
+                                  )}>
+                                    {c.total > 0 ? Math.round((c.valid / c.total) * 100) : 0}%
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Per Sales Stats */}
+                  <Card className="bg-white">
+                    <CardContent className="p-4">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Users size={18} className="text-blue-500" /> Breakdown per Sales</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50">
+                              <th className="px-4 py-2 text-left font-semibold text-slate-600">Sales</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Total</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Valid</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Fraud</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {salesStats.filter(s => s.total > 0).map(s => (
+                              <tr key={s.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3 font-medium text-slate-900">{s.name}</td>
+                                <td className="px-4 py-3 text-center font-bold">{s.total}</td>
+                                <td className="px-4 py-3 text-center text-emerald-600 font-semibold">{s.valid}</td>
+                                <td className="px-4 py-3 text-center text-rose-600 font-semibold">{s.fraud}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className={cn('px-2 py-1 rounded-lg text-xs font-bold',
+                                    s.total > 0 && (s.valid / s.total) >= 0.9 ? 'bg-emerald-100 text-emerald-700' :
+                                    s.total > 0 && (s.valid / s.total) >= 0.7 ? 'bg-amber-100 text-amber-700' :
+                                    'bg-red-100 text-red-700'
+                                  )}>
+                                    {s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0}%
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* All Submissions Table */}
+                  <Card className="bg-white">
+                    <CardContent className="p-4">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Shield size={18} className="text-rose-500" /> All Submissions</h3>
+                      {/* Filters */}
+                      <div className="flex flex-wrap gap-3 mb-4">
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                          <option value="all">Semua Status</option>
+                          <option value="valid">Valid</option>
+                          <option value="pending">Pending</option>
+                          <option value="fraud">Fraud</option>
+                        </select>
+                        <select value={campaignFilter} onChange={e => setCampaignFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                          <option value="all">Semua Campaign</option>
+                          {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <select value={salesFilter} onChange={e => setSalesFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                          <option value="all">Semua Sales</option>
+                          {salesList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50">
+                              <th className="px-3 py-2 text-left font-semibold text-slate-600">Kode</th>
+                              <th className="px-3 py-2 text-left font-semibold text-slate-600">Customer</th>
+                              <th className="px-3 py-2 text-left font-semibold text-slate-600">Sales</th>
+                              <th className="px-3 py-2 text-left font-semibold text-slate-600">Status</th>
+                              <th className="px-3 py-2 text-center font-semibold text-slate-600">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {filteredSubs.length === 0 ? (
+                              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Tidak ada submission</td></tr>
+                            ) : filteredSubs.map(sub => (
+                              <tr key={sub.id} className={cn('hover:bg-slate-50', sub.status === 'fraud' && 'bg-red-50/30')}>
+                                <td className="px-3 py-3 font-mono text-sm font-semibold text-blue-600">{sub.submission_code}</td>
+                                <td className="px-3 py-3">
+                                  <div className="font-medium text-slate-900">{sub.customer_name}</div>
+                                  <div className="text-xs text-slate-500">{sub.customer_phone_masked || sub.customer_phone}</div>
+                                </td>
+                                <td className="px-3 py-3 text-slate-700">{sub.sales_name || '-'}</td>
+                                <td className="px-3 py-3">
+                                  {sub.status === 'valid' && <Badge className="bg-emerald-100 text-emerald-700">Valid</Badge>}
+                                  {sub.status === 'pending' && <Badge className="bg-amber-100 text-amber-700">Pending</Badge>}
+                                  {sub.status === 'fraud' && <Badge className="bg-rose-100 text-rose-700">Fraud</Badge>}
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button onClick={() => setSelectedSubmission(sub)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Detail"><Eye size={16} /></button>
+                                    <button onClick={() => deleteSubmission(sub.id)} className="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Hapus"><Trash size={16} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Detail Modal */}
+                  {selectedSubmission && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedSubmission(null)}>
+                      <Card className="bg-white max-w-lg w-full shadow-xl" onClick={e => e.stopPropagation()}>
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-blue-600">{selectedSubmission.submission_code}</span>
+                              {selectedSubmission.status === 'valid' && <Badge className="bg-emerald-100 text-emerald-700">Valid</Badge>}
+                              {selectedSubmission.status === 'fraud' && <Badge className="bg-rose-100 text-rose-700">Fraud</Badge>}
+                            </div>
+                            <button onClick={() => setSelectedSubmission(null)} className="p-2 hover:bg-slate-100 rounded-lg"><X size={20} className="text-slate-500" /></button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <p className="text-xs text-slate-500 uppercase">Customer</p>
+                              <p className="font-medium">{selectedSubmission.customer_name}</p>
+                              <p className="text-sm text-slate-500">{selectedSubmission.customer_phone}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 uppercase">Sales</p>
+                              <p className="font-medium">{selectedSubmission.sales_name || '-'}</p>
+                              <p className="text-sm text-slate-500">{selectedSubmission.campaign_name}</p>
+                            </div>
+                          </div>
+                          {selectedSubmission.fraud_flags && (
+                            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl mb-4">
+                              <p className="text-sm font-semibold text-rose-700 mb-2">Alasan Fraud:</p>
+                              {JSON.parse(selectedSubmission.fraud_flags).map((flag: any, i: number) => (
+                                <p key={i} className="text-sm text-rose-600">• {flag.reason}</p>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center text-sm text-slate-500">
+                            <span>{new Date(selectedSubmission.created_at).toLocaleString('id-ID')}</span>
+                            <Button variant="outline" onClick={() => deleteSubmission(selectedSubmission.id)} className="text-red-600 border-red-200">
+                              <Trash size={16} className="mr-1" /> Hapus
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* CAMPAIGNS */}
             {activeTab === 'campaigns' && (
               <div className="space-y-4">
