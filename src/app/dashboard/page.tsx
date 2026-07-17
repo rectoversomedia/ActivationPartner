@@ -121,32 +121,36 @@ export default function DashboardPage() {
   const getDateRange = (preset: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const last7Days = new Date(today);
-    last7Days.setDate(last7Days.getDate() - 7);
-    const last30Days = new Date(today);
-    last30Days.setDate(last30Days.getDate() - 30);
-    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-    const lastYear = new Date(today.getFullYear() - 1, 0, 1);
-    const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
+    const todayStr = today.toISOString().split("T")[0];
 
     switch (preset) {
       case "today":
-        return { from: today.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
-      case "yesterday":
+        return { from: todayStr, to: todayStr };
+      case "yesterday": {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
         return { from: yesterday.toISOString().split("T")[0], to: yesterday.toISOString().split("T")[0] };
-      case "last7":
-        return { from: last7Days.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
-      case "last30":
-        return { from: last30Days.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
-      case "lastMonth":
+      }
+      case "last7": {
+        const last7 = new Date(today);
+        last7.setDate(last7.getDate() - 6);
+        return { from: last7.toISOString().split("T")[0], to: todayStr };
+      }
+      case "last30": {
+        const last30 = new Date(today);
+        last30.setDate(last30.getDate() - 29);
+        return { from: last30.toISOString().split("T")[0], to: todayStr };
+      }
+      case "lastMonth": {
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
         return { from: lastMonth.toISOString().split("T")[0], to: lastMonthEnd.toISOString().split("T")[0] };
-      case "lastYear":
+      }
+      case "lastYear": {
+        const lastYear = new Date(today.getFullYear() - 1, 0, 1);
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
         return { from: lastYear.toISOString().split("T")[0], to: lastYearEnd.toISOString().split("T")[0] };
+      }
       default:
         return { from: "", to: "" };
     }
@@ -215,25 +219,75 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  const filteredSubmissions = submissions.filter(
-    (sub) =>
-      (statusFilter === "all" || sub.status === statusFilter) &&
-      (salesFilter === "all" || sub.sales_name === salesFilter) &&
-      (!dateFrom || new Date(sub.created_at) >= new Date(dateFrom)) &&
-      (!dateTo || new Date(sub.created_at) <= new Date(dateTo + "T23:59:59")) &&
-      (!searchQuery ||
-        sub.submission_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.sales_name?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Memoized filtered submissions (must come before filteredSalesStats)
+  const filteredSubmissions = React.useMemo(() => {
+    return submissions.filter((sub) => {
+      // Status filter
+      if (statusFilter !== "all" && sub.status !== statusFilter) return false;
+
+      // Sales filter
+      if (salesFilter !== "all" && sub.sales_name !== salesFilter) return false;
+
+      // Date from filter
+      if (dateFrom) {
+        const subDate = new Date(sub.created_at);
+        const fromDate = new Date(dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (subDate < fromDate) return false;
+      }
+
+      // Date to filter
+      if (dateTo) {
+        const subDate = new Date(sub.created_at);
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (subDate > toDate) return false;
+      }
+
+      // Search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        if (!sub.submission_code?.toLowerCase().includes(query) &&
+            !sub.customer_name?.toLowerCase().includes(query) &&
+            !sub.sales_name?.toLowerCase().includes(query)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [submissions, statusFilter, salesFilter, dateFrom, dateTo, searchQuery]);
+
+  // Memoized filtered sales stats based on filtered submissions
+  const filteredSalesStats = React.useMemo(() => {
+    const salesMap = new Map<string, { total: number; valid: number; fraud: number }>();
+    filteredSubmissions.forEach((sub) => {
+      const salesName = sub.sales_name || "Unknown";
+      const current = salesMap.get(salesName) || { total: 0, valid: 0, fraud: 0 };
+      current.total++;
+      if (sub.status === "valid") current.valid++;
+      else if (sub.status === "fraud") current.fraud++;
+      salesMap.set(salesName, current);
+    });
+
+    return Array.from(salesMap.entries())
+      .map(([name, data]) => ({
+        name,
+        total: data.total,
+        valid: data.valid,
+        fraud: data.fraud,
+        rate: data.total > 0 ? Math.round((data.valid / data.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [filteredSubmissions]);
 
   // Stats for filtered submissions
-  const stats = {
+  const stats = React.useMemo(() => ({
     total: filteredSubmissions.length,
     valid: filteredSubmissions.filter((s) => s.status === "valid").length,
     pending: filteredSubmissions.filter((s) => s.status === "pending").length,
     fraud: filteredSubmissions.filter((s) => s.status === "fraud").length,
-  };
+  }), [filteredSubmissions]);
 
   const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
 
@@ -461,7 +515,7 @@ export default function DashboardPage() {
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm"
               >
                 <option value="all">Semua Sales</option>
-                {salesStats.map((s) => (
+                {filteredSalesStats.map((s) => (
                   <option key={s.name} value={s.name}>
                     {s.name}
                   </option>
@@ -640,7 +694,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {salesStats.map((sales) => (
+                  {filteredSalesStats.map((sales) => (
                     <tr
                       key={sales.name}
                       onClick={() => {
