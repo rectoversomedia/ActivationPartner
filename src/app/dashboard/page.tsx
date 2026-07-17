@@ -220,19 +220,12 @@ export default function DashboardPage() {
             sub.sales_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Stats
+  // Stats - Simple Mode
   const stats = {
     total: submissions.length,
     valid: submissions.filter(s => s.status === 'valid').length,
     pending: submissions.filter(s => s.status === 'pending').length,
-    invalid: submissions.filter(s => s.status === 'invalid').length,
     fraud: submissions.filter(s => s.status === 'fraud').length,
-    fraudScoreAvg: submissions.length > 0
-      ? Math.round(submissions.reduce((acc, s) => acc + (s.fraud_score || 0), 0) / submissions.length)
-      : 0,
-    fraudReview: submissions.filter(s => s.fraud_decision === 'review').length,
-    fraudFlag: submissions.filter(s => s.fraud_decision === 'flag').length,
-    fraudBlock: submissions.filter(s => s.fraud_decision === 'block').length,
   };
 
   const validRate = stats.total > 0 ? Math.round((stats.valid / stats.total) * 100) : 0;
@@ -344,17 +337,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Invalid */}
-          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/30 mb-2">
-                <XCircle size={20} weight="fill" className="text-white" />
-              </div>
-              <p className="text-3xl font-bold text-red-600">{stats.invalid}</p>
-              <p className="text-xs text-slate-500 mt-1">Invalid</p>
-            </CardContent>
-          </Card>
-
           {/* Fraud */}
           <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
             <CardContent className="p-4 flex flex-col items-center justify-center text-center">
@@ -381,25 +363,15 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Fraud Stats - 3 columns symmetrical */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Fraud Detail - 2 columns symmetrical */}
+        <div className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
             <CardContent className="p-4 flex flex-col items-center justify-center text-center">
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 backdrop-blur-sm border border-emerald-500/30 mb-2">
                 <ShieldCheck size={20} weight="fill" className="text-emerald-400" />
               </div>
-              <p className="text-2xl font-bold">{stats.fraudScoreAvg}</p>
-              <p className="text-xs text-slate-300 mt-1">Avg Fraud Score</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white shadow-xl">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 backdrop-blur-sm border border-amber-500/30 mb-2">
-                <Warning size={20} weight="fill" className="text-amber-400" />
-              </div>
-              <p className="text-2xl font-bold">{stats.fraudReview + stats.fraudFlag}</p>
-              <p className="text-xs text-slate-300 mt-1">Need Review</p>
+              <p className="text-2xl font-bold">{stats.valid}</p>
+              <p className="text-xs text-slate-300 mt-1">Valid Submission</p>
             </CardContent>
           </Card>
 
@@ -408,8 +380,8 @@ export default function DashboardPage() {
               <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/20 backdrop-blur-sm border border-red-500/30 mb-2">
                 <ShieldSlash size={20} weight="fill" className="text-red-400" />
               </div>
-              <p className="text-2xl font-bold">{stats.fraudBlock}</p>
-              <p className="text-xs text-slate-300 mt-1">Auto Blocked</p>
+              <p className="text-2xl font-bold">{stats.fraud}</p>
+              <p className="text-xs text-slate-300 mt-1">Fraud Submission</p>
             </CardContent>
           </Card>
         </div>
@@ -434,9 +406,9 @@ export default function DashboardPage() {
               view === 'fraud' ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-rose-500/30' : 'text-slate-600 hover:bg-slate-50'
             )}>
               <Shield size={16} /> Fraud
-              {(stats.fraudReview + stats.fraudFlag) > 0 && (
+              {stats.fraud > 0 && (
                 <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-rose-200 text-rose-700 animate-pulse">
-                  {stats.fraudReview + stats.fraudFlag}
+                  {stats.fraud}
                 </span>
               )}
             </button>
