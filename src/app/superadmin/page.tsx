@@ -12,7 +12,8 @@ import {
   Info, Image as ImageIcon, CheckSquare, Square,
   Download, LinkSimple, ImageSquare, Upload, Globe,
   DotsSixVertical, ArrowsOutCardinal, CaretDown, EyeSlash,
-  ToggleLeft, ToggleRight, Sliders, WarningCircle, CheckFat
+  ToggleLeft, ToggleRight, Sliders, WarningCircle, CheckFat,
+  ListPlus, PencilSimple, UserCirclePlus
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -434,6 +435,53 @@ export default function SuperAdminPage() {
     } catch (error) { console.error('Delete error:', error); }
   };
 
+  // Quick Add/Edit Modal for Sales/PIC
+  const [quickModalType, setQuickModalType] = React.useState<'sales' | 'pics'>('sales');
+  const [quickEditItem, setQuickEditItem] = React.useState<SalesPerson | PIC | null>(null);
+  const [showQuickModal, setShowQuickModal] = React.useState(false);
+
+  const openQuickAddModal = (type: 'sales' | 'pics') => {
+    setQuickModalType(type);
+    setQuickEditItem(null);
+    if (type === 'sales') {
+      setEditingSales({ id: '', name: '', phone: '', is_active: true });
+    } else {
+      setEditingPic({ id: '', name: '', phone: '', is_active: true });
+    }
+    setShowQuickModal(true);
+  };
+
+  const openQuickEditModal = (type: 'sales' | 'pics', item: SalesPerson | PIC) => {
+    setQuickModalType(type);
+    setQuickEditItem(item);
+    if (type === 'sales') {
+      setEditingSales({ id: item.id, name: item.name, phone: item.phone, is_active: item.is_active });
+    } else {
+      setEditingPic({ id: item.id, name: item.name, phone: item.phone, is_active: item.is_active });
+    }
+    setShowQuickModal(true);
+  };
+
+  const saveQuickItem = async () => {
+    setIsSaving(true);
+    try {
+      if (quickModalType === 'sales' && editingSales) {
+        if (!editingSales.name) return;
+        const method = editingSales.id ? 'PUT' : 'POST';
+        const url = editingSales.id ? `/api/master-data/sales/${editingSales.id}` : '/api/master-data/sales';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingSales) });
+        if (res.ok) { await loadData(); setShowQuickModal(false); }
+      } else if (quickModalType === 'pics' && editingPic) {
+        if (!editingPic.name) return;
+        const method = editingPic.id ? 'PUT' : 'POST';
+        const url = editingPic.id ? `/api/master-data/pics/${editingPic.id}` : '/api/master-data/pics';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPic) });
+        if (res.ok) { await loadData(); setShowQuickModal(false); }
+      }
+    } catch (error) { console.error('Save error:', error); }
+    finally { setIsSaving(false); }
+  };
+
   // Add/Remove Form Field
   const addFormField = () => {
     if (!editingCampaign) return;
@@ -692,9 +740,89 @@ export default function SuperAdminPage() {
               <Button variant="outline" onClick={addFormField} className="w-full border-dashed">
                 <Plus size={18} className="mr-2" /> Add Form Field
               </Button>
-              <p className="text-xs text-slate-500 px-2">
-                Form fields shown to partners when submitting. "Custom" = manual input, others = from master data.
-              </p>
+            </div>
+          </SectionCard>
+
+          {/* Quick Sales/PIC Manager */}
+          <SectionCard title="Quick Sales & PIC Manager" icon={Users} color="from-emerald-500 to-teal-500">
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Sales List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <User size={16} className="text-blue-500" /> Sales Team
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={() => openQuickAddModal('sales')} className="text-emerald-600 h-7">
+                    <Plus size={14} className="mr-1" /> Add
+                  </Button>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {salesList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-2">No sales data</p>
+                  ) : (
+                    salesList.slice(0, 5).map((sales) => (
+                      <div key={sales.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                            {sales.name[0]}
+                          </div>
+                          <span className="text-slate-700">{sales.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openQuickEditModal('sales', sales)} className="p-1 hover:bg-blue-100 rounded text-blue-500">
+                            <Pencil size={12} />
+                          </button>
+                          <button onClick={() => deleteItem('sales', sales.id)} className="p-1 hover:bg-red-100 rounded text-red-500">
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {salesList.length > 5 && (
+                    <p className="text-xs text-slate-400 text-center">+{salesList.length - 5} more</p>
+                  )}
+                </div>
+              </div>
+
+              {/* PIC List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <UserCircle size={16} className="text-purple-500" /> PIC Team
+                  </h4>
+                  <Button variant="ghost" size="sm" onClick={() => openQuickAddModal('pics')} className="text-emerald-600 h-7">
+                    <Plus size={14} className="mr-1" /> Add
+                  </Button>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {picsList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-2">No PIC data</p>
+                  ) : (
+                    picsList.slice(0, 5).map((pic) => (
+                      <div key={pic.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">
+                            {pic.name[0]}
+                          </div>
+                          <span className="text-slate-700">{pic.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openQuickEditModal('pics', pic)} className="p-1 hover:bg-blue-100 rounded text-blue-500">
+                            <Pencil size={12} />
+                          </button>
+                          <button onClick={() => deleteItem('pics', pic.id)} className="p-1 hover:bg-red-100 rounded text-red-500">
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {picsList.length > 5 && (
+                    <p className="text-xs text-slate-400 text-center">+{picsList.length - 5} more</p>
+                  )}
+                </div>
+              </div>
             </div>
           </SectionCard>
 
@@ -892,6 +1020,79 @@ export default function SuperAdminPage() {
             </div>
           </div>
         </div>
+
+        {/* Quick Add/Edit Sales/PIC Modal */}
+        {showQuickModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowQuickModal(false)}>
+            <Card className="bg-white max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <CardContent className="p-6">
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  {quickModalType === 'sales' ? (
+                    <>
+                      <User size={20} className="text-blue-500" />
+                      {quickEditItem ? 'Edit Sales' : 'Add Sales'}
+                    </>
+                  ) : (
+                    <>
+                      <UserCircle size={20} className="text-purple-500" />
+                      {quickEditItem ? 'Edit PIC' : 'Add PIC'}
+                    </>
+                  )}
+                </h2>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">Nama Lengkap</label>
+                    <Input
+                      value={quickModalType === 'sales' ? (editingSales?.name || '') : (editingPic?.name || '')}
+                      onChange={(e) => {
+                        if (quickModalType === 'sales' && editingSales) {
+                          setEditingSales({ ...editingSales, name: e.target.value });
+                        } else if (editingPic) {
+                          setEditingPic({ ...editingPic, name: e.target.value });
+                        }
+                      }}
+                      placeholder="Masukkan nama lengkap"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-600">No. HP (opsional)</label>
+                    <Input
+                      value={quickModalType === 'sales' ? (editingSales?.phone || '') : (editingPic?.phone || '')}
+                      onChange={(e) => {
+                        if (quickModalType === 'sales' && editingSales) {
+                          setEditingSales({ ...editingSales, phone: e.target.value });
+                        } else if (editingPic) {
+                          setEditingPic({ ...editingPic, phone: e.target.value });
+                        }
+                      }}
+                      placeholder="08xxxxxxxxxx"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                    <span className="text-sm text-slate-700">Status Aktif</span>
+                    <Toggle
+                      checked={quickModalType === 'sales' ? (editingSales?.is_active ?? true) : (editingPic?.is_active ?? true)}
+                      onChange={(v) => {
+                        if (quickModalType === 'sales' && editingSales) {
+                          setEditingSales({ ...editingSales, is_active: v });
+                        } else if (editingPic) {
+                          setEditingPic({ ...editingPic, is_active: v });
+                        }
+                      }}
+                      label=""
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setShowQuickModal(false)} className="flex-1">Batal</Button>
+                  <Button onClick={saveQuickItem} isLoading={isSaving} className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600">
+                    Simpan
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
