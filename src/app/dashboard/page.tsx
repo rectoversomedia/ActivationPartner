@@ -560,7 +560,7 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1">
-                            <button className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" title="View Detail">
+                            <button onClick={() => setSelectedSubmission(sub)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600" title="View Detail">
                               <Eye size={18} />
                             </button>
                             {isFlagged && (
