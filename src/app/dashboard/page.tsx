@@ -245,19 +245,23 @@ export default function DashboardPage() {
     setShowReviewModal(true);
   };
 
-  // Save review
-  const saveReview = async () => {
+  // Save fraud review with decision
+  const saveFraudReview = async (decision: 'allow' | 'review' | 'flag' | 'block') => {
     if (!reviewSubmission) return;
     setIsSavingReview(true);
     try {
       const res = await fetch(`/api/submissions/${reviewSubmission.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fraud_remarks: reviewRemarks }),
+        body: JSON.stringify({
+          fraud_decision: decision,
+          fraud_remarks: reviewRemarks,
+        }),
       });
       if (res.ok) {
         await fetchData();
         setShowReviewModal(false);
+        setReviewRemarks('');
       }
     } catch (error) {
       console.error('Failed to save review:', error);
@@ -998,6 +1002,41 @@ export default function DashboardPage() {
                 })()}
               </div>
 
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  onClick={() => saveFraudReview('allow')}
+                  disabled={isSavingReview}
+                  className="flex-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <ShieldCheck size={16} className="mr-1" /> Allow
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => saveFraudReview('review')}
+                  disabled={isSavingReview}
+                  className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  <Question size={16} className="mr-1" /> Review
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => saveFraudReview('flag')}
+                  disabled={isSavingReview}
+                  className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  <WarningCircle size={16} className="mr-1" /> Flag
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => saveFraudReview('block')}
+                  disabled={isSavingReview}
+                  className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <ShieldSlash size={16} className="mr-1" /> Block
+                </Button>
+              </div>
+
               {/* Remarks Input */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -1018,12 +1057,12 @@ export default function DashboardPage() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={saveReview}
+                  onClick={() => saveFraudReview('allow')}
                   isLoading={isSavingReview}
                   disabled={!reviewRemarks.trim()}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
                 >
-                  <ChatText size={18} className="mr-2" /> Save Remarks
+                  <ChatText size={18} className="mr-2" /> Save Review
                 </Button>
               </div>
             </CardContent>
