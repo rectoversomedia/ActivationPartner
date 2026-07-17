@@ -306,18 +306,16 @@ export default function SubmitPage() {
     getIP();
   }, []);
 
-  // Get field value options based on source
-  const getFieldOptions = (field: FormField) => {
-    if (field.source === 'sales') {
-      return salesList.map(s => ({ label: s.name, value: s.id }));
+  // Generate file hash for duplicate detection
+  const generateFileHash = async (file: File): Promise<string> => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return Math.random().toString(36).substring(2);
     }
-    if (field.source === 'pics') {
-      return picsList.map(p => ({ label: p.name, value: p.id }));
-    }
-    if (field.source === 'campaigns') {
-      return campaigns.map(c => ({ label: c.name, value: c.id }));
-    }
-    return field.options || [];
   };
 
   // Get max image size from campaign settings
@@ -330,6 +328,20 @@ export default function SubmitPage() {
 
   const shouldResizeImages = (): boolean => {
     return selectedCampaign?.fraud_rules?.resize_images ?? true;
+  };
+
+  // Get field value options based on source
+  const getFieldOptions = (field: FormField) => {
+    if (field.source === 'sales') {
+      return salesList.map(s => ({ label: s.name, value: s.id }));
+    }
+    if (field.source === 'pics') {
+      return picsList.map(p => ({ label: p.name, value: p.id }));
+    }
+    if (field.source === 'campaigns') {
+      return campaigns.map(c => ({ label: c.name, value: c.id }));
+    }
+    return field.options || [];
   };
 
   // Handle file selection with compression and analysis
@@ -494,13 +506,26 @@ export default function SubmitPage() {
       formDataToSend.append('time_on_page_ms', timeOnPageMs.toString());
       formDataToSend.append('typing_speeds', JSON.stringify(typingSpeeds));
 
-      // Add evidence files
+      // Add evidence files with hashes for duplicate detection
+      const evidenceHashes: string[] = [];
+      const evidenceTypes: string[] = [];
+
       for (const evidence of selectedCampaign.required_evidence) {
         const file = evidenceFiles[evidence.id];
         if (file) {
           formDataToSend.append(`evidence_${evidence.id}`, file);
+          // Generate hash for duplicate detection
+          const hash = await generateFileHash(file);
+          evidenceHashes.push(hash);
+          evidenceTypes.push(evidence.id);
+        } else {
+          evidenceHashes.push('pending');
+          evidenceTypes.push(evidence.id);
         }
       }
+
+      formDataToSend.append('evidence_hashes', JSON.stringify(evidenceHashes));
+      formDataToSend.append('evidence_types', JSON.stringify(evidenceTypes));
 
       const response = await fetch('/api/submissions', {
         method: 'POST',
