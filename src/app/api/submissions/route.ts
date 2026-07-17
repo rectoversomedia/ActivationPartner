@@ -1,75 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Severity to score mapping
-const SEVERITY_SCORES: Record<string, number> = {
-  low: 5,
-  medium: 15,
-  high: 25,
-  critical: 40,
-  error: 20,
-};
-
-// Decision thresholds
-const DECISION_THRESHOLDS = {
-  allow: 25,
-  review: 50,
-  flag: 75,
-  block: 100,
-};
-
-/**
- * Calculate fraud score from flags
- */
-function calculateFraudScore(flags: Array<{ flag: string; severity: string; score?: number }>): number {
-  let score = 0;
-  const seenTypes = new Set<string>();
-
-  for (const flag of flags) {
-    const flagKey = flag.flag.substring(0, 20);
-    if (seenTypes.has(flagKey)) continue;
-    seenTypes.add(flagKey);
-
-    score += flag.score || SEVERITY_SCORES[flag.severity] || 5;
-  }
-
-  return Math.min(score, 100);
-}
-
-/**
- * Determine fraud decision based on score
- */
-function determineDecision(score: number): string {
-  if (score >= DECISION_THRESHOLDS.block) return "block";
-  if (score >= DECISION_THRESHOLDS.flag) return "flag";
-  if (score >= DECISION_THRESHOLDS.review) return "review";
-  return "allow";
-}
-
-/**
- * Get risk level label
- */
-function getRiskLevel(score: number): string {
-  if (score >= 75) return "critical";
-  if (score >= 50) return "high";
-  if (score >= 25) return "medium";
-  return "low";
-}
-
 // =====================================================
-// FRAUD DETECTION ENGINE v2
+// SIMPLE FRAUD DETECTION
+// If ANY rule triggered → FRAUD (status = "fraud")
 // =====================================================
 
 interface FraudFlag {
   flag: string;
   reason: string;
-  severity: "low" | "medium" | "high" | "critical";
   category: string;
-  score: number;
-  metadata?: Record<string, any>;
 }
 
-async function detectFraudV2(
+async function detectFraud(
   supabase: any,
   submission: {
     customer_phone: string;
@@ -90,191 +33,76 @@ async function detectFraudV2(
     typing_speeds?: number[];
   },
   fraudRules: any
-): Promise<{ flags: any[]; score: number; decision: string; riskLevel: string }> {
+): Promise<{ flags: FraudFlag[]; is_fraud: boolean }> {
   const flags: FraudFlag[] = [];
 
-  // ============================================
-  // 1. EVIDENCE CHECKS (Required Screenshots)
-  // ============================================
+  // 1. MISSING EVIDENCE
   if (fraudRules.require_screenshot_download && !submission.screenshot_download) {
-    flags.push({
-      flag: "EVIDENCE_MISSING",
-      reason: "Screenshot Download wajib diupload",
-      severity: "high" as const,
-      category: "evidence",
-      score: 20,
-    });
+    flags.push({ flag: "MISSING_DOWNLOAD", reason: "Screenshot Download belum diupload", category: "evidence" });
   }
   if (fraudRules.require_screenshot_register && !submission.screenshot_register) {
-    flags.push({
-      flag: "EVIDENCE_MISSING",
-      reason: "Screenshot Registrasi wajib diupload",
-      severity: "high" as const,
-      category: "evidence",
-      score: 20,
-    });
+    flags.push({ flag: "MISSING_REGISTER", reason: "Screenshot Registrasi belum diupload", category: "evidence" });
   }
   if (fraudRules.require_screenshot_rating && !submission.screenshot_rating) {
-    flags.push({
-      flag: "EVIDENCE_MISSING",
-      reason: "Screenshot Rating wajib diupload",
-      severity: "high" as const,
-      category: "evidence",
-      score: 20,
-    });
+    flags.push({ flag: "MISSING_RATING", reason: "Screenshot Rating & Review belum diupload", category: "evidence" });
   }
 
-  // ============================================
-  // 1B. DUPLICATE SCREENSHOT CHECK - CRITICAL FRAUD
-  // ============================================
-  // Check if multiple evidence types have the same image hash
+  // 2. DUPLICATE SCREENSHOTS
   if (submission.evidence_hashes && submission.evidence_hashes.length > 1) {
     const hashes = submission.evidence_hashes;
     const types = submission.evidence_types || [];
-
-    // Filter out 'pending' hashes
     const validHashes: string[] = [];
-    const validTypes: string[] = [];
 
-    for (let i = 0; i < hashes.length; i++) {
-      if (hashes[i] && hashes[i] !== 'pending') {
-        validHashes.push(hashes[i]);
-        if (types[i]) validTypes.push(types[i]);
-      }
+    for (const h of hashes) {
+      if (h && h !== 'pending') validHashes.push(h);
     }
 
     if (validHashes.length >= 2) {
-      // Count occurrences of each hash
-      const hashCounts: Record<string, { count: number; types: string[] }> = {};
-
-      for (let i = 0; i < validHashes.length; i++) {
-        const hash = validHashes[i];
-        if (!hashCounts[hash]) {
-          hashCounts[hash] = { count: 0, types: [] };
-        }
-        hashCounts[hash].count++;
-        if (validTypes[i]) {
-          hashCounts[hash].types.push(validTypes[i]);
-        }
-      }
-
-      // Check for ALL screenshots being the same (100% fraud)
-      const allSameHash = Object.keys(hashCounts).length === 1 && validHashes.length >= 3;
-
-      for (const [hash, data] of Object.entries(hashCounts)) {
-        if (data.count > 1) {
-          const typeLabels = data.types.map(t => {
-            if (t.includes('download')) return 'Screenshot Download';
-            if (t.includes('register')) return 'Screenshot Registrasi';
-            if (t.includes('rating')) return 'Rating & Review';
-            return t;
-          }).join(', ');
-
-          if (allSameHash) {
-            // ALL 3 evidence are the same photo - CRITICAL
-            flags.push({
-              flag: "IDENTICAL_ALL_SCREENSHOTS",
-              reason: `FRAUD 100%: Foto IDENTIK untuk SEMUA evidence (${typeLabels}). Kemungkinan screenshot dari 1 layar yang sama.`,
-              severity: "critical" as const,
-              category: "evidence",
-              score: 80, // High score for 100% fraud
-              metadata: { hash, evidenceTypes: data.types, allSame: true },
-            });
-          } else {
-            // Some evidence share same photo
-            flags.push({
-              flag: "DUPLICATE_SCREENSHOT",
-              reason: `Foto DUPLIKAT: Foto yang sama digunakan untuk ${data.count} evidence (${typeLabels})`,
-              severity: "high" as const,
-              category: "evidence",
-              score: 40,
-              metadata: { hash, evidenceTypes: data.types, count: data.count },
-            });
-          }
-        }
+      const hashSet = new Set(validHashes);
+      if (hashSet.size === 1 && validHashes.length >= 3) {
+        const typeLabels = types.map(t => {
+          if (t.includes('download')) return 'Screenshot Download';
+          if (t.includes('register')) return 'Screenshot Registrasi';
+          if (t.includes('rating')) return 'Rating & Review';
+          return t;
+        }).join(', ');
+        flags.push({
+          flag: "IDENTICAL_SCREENSHOTS",
+          reason: `FRAUD: Foto IDENTIK untuk SEMUA evidence (${typeLabels}). Kemungkinan screenshot 1 layar yang sama.`,
+          category: "evidence"
+        });
+      } else if (hashSet.size < validHashes.length) {
+        flags.push({
+          flag: "DUPLICATE_SCREENSHOTS",
+          reason: "FRAUD: Ada foto yang sama digunakan untuk evidence berbeda.",
+          category: "evidence"
+        });
       }
     }
   }
 
-  // ============================================
-  // 2. GPS CHECKS
-  // ============================================
+  // 3. NO GPS
   if (fraudRules.require_gps && (!submission.gps_lat || !submission.gps_lng)) {
-    flags.push({
-      flag: "NO_GPS_DATA",
-      reason: "Data GPS wajib ada",
-      severity: "high" as const,
-      category: "location",
-      score: 15,
-    });
+    flags.push({ flag: "NO_GPS", reason: "Data GPS tidak tersedia", category: "location" });
   }
 
-  if (submission.gps_lat && submission.gps_lng) {
-    const lat = parseFloat(submission.gps_lat);
-    const lng = parseFloat(submission.gps_lng);
-    if (lat === 0 && lng === 0) {
-      flags.push({
-        flag: "GPS_INVALID",
-        reason: "Koordinat GPS tidak valid (0,0)",
-        severity: "high" as const,
-        category: "location",
-        score: 25,
-      });
-    }
-  }
-
-  // ============================================
-  // 3. BOT BEHAVIOR CHECKS
-  // ============================================
-  if (submission.time_on_page_ms !== undefined) {
-    if (submission.time_on_page_ms < 3000) {
-      flags.push({
-        flag: "BOT_ULTRA_FAST",
-        reason: `Waktu di halaman hanya ${submission.time_on_page_ms}ms (kemungkinan bot)`,
-        severity: "high" as const,
-        category: "behavior",
-        score: 25,
-        metadata: { timeOnPageMs: submission.time_on_page_ms },
-      });
-    } else if (submission.time_on_page_ms < 8000) {
-      flags.push({
-        flag: "BOT_FAST",
-        reason: `Waktu di halaman ${submission.time_on_page_ms}ms (terlalu cepat)`,
-        severity: "medium" as const,
-        category: "behavior",
-        score: 15,
-      });
-    }
+  // 4. BOT BEHAVIOR
+  if (submission.time_on_page_ms !== undefined && submission.time_on_page_ms < 3000) {
+    flags.push({ flag: "BOT_FAST", reason: `Waktu di halaman hanya ${submission.time_on_page_ms}ms (kemungkinan bot)`, category: "behavior" });
   }
 
   if (submission.typing_speeds && submission.typing_speeds.length > 0) {
     const avgSpeed = submission.typing_speeds.reduce((a, b) => a + b, 0) / submission.typing_speeds.length;
     if (avgSpeed > 20) {
-      flags.push({
-        flag: "BOT_TYPING",
-        reason: `Typing speed ${avgSpeed.toFixed(1)} cps (kemungkinan bot)`,
-        severity: "high" as const,
-        category: "behavior",
-        score: 25,
-      });
-    } else if (avgSpeed > 12) {
-      flags.push({
-        flag: "BOT_TYPING_SUSPICIOUS",
-        reason: `Typing speed ${avgSpeed.toFixed(1)} cps (lebih cepat dari normal)`,
-        severity: "medium" as const,
-        category: "behavior",
-        score: 15,
-      });
+      flags.push({ flag: "BOT_TYPING", reason: `Typing speed ${avgSpeed.toFixed(1)} cps (kemungkinan bot)`, category: "behavior" });
     }
   }
 
-  // ============================================
-  // 4. DUPLICATE CUSTOMER DATA CHECKS
-  // ============================================
+  // 5. DUPLICATE PHONE
   if (fraudRules.check_duplicate_phone && submission.customer_phone) {
     const { data: dupPhone } = await supabase
       .from("submissions")
-      .select("id, submission_code, created_at, campaign_id")
+      .select("id, submission_code")
       .eq("customer_phone", submission.customer_phone)
       .eq("campaign_id", submission.campaign_id)
       .limit(1);
@@ -282,19 +110,17 @@ async function detectFraudV2(
     if (dupPhone && dupPhone.length > 0) {
       flags.push({
         flag: "DUPLICATE_PHONE",
-        reason: `HP '${submission.customer_phone}' sudah terdaftar: ${dupPhone[0].submission_code}`,
-        severity: "critical" as const,
-        category: "device",
-        score: 40,
-        metadata: { existingCode: dupPhone[0].submission_code },
+        reason: `FRAUD: HP '${submission.customer_phone}' sudah terdaftar (${dupPhone[0].submission_code})`,
+        category: "customer"
       });
     }
   }
 
+  // 6. DUPLICATE NAME
   if (fraudRules.check_duplicate_name && submission.customer_name) {
     const { data: dupName } = await supabase
       .from("submissions")
-      .select("id, submission_code, customer_phone, created_at")
+      .select("id, submission_code, customer_phone")
       .eq("campaign_id", submission.campaign_id)
       .ilike("customer_name", submission.customer_name.toLowerCase().trim())
       .neq("customer_phone", submission.customer_phone)
@@ -303,19 +129,17 @@ async function detectFraudV2(
     if (dupName && dupName.length > 0) {
       flags.push({
         flag: "DUPLICATE_NAME",
-        reason: `Nama '${submission.customer_name}' sudah terdaftar dengan HP berbeda`,
-        severity: "medium" as const,
-        category: "device",
-        score: 15,
-        metadata: { existingCode: dupName[0].submission_code },
+        reason: `FRAUD: Nama '${submission.customer_name}' sudah terdaftar dengan HP berbeda`,
+        category: "customer"
       });
     }
   }
 
+  // 7. DUPLICATE EMAIL
   if (fraudRules.check_duplicate_email && submission.customer_email) {
     const { data: dupEmail } = await supabase
       .from("submissions")
-      .select("id, submission_code, created_at")
+      .select("id, submission_code")
       .eq("customer_email", submission.customer_email)
       .eq("campaign_id", submission.campaign_id)
       .not("customer_email", "is", null)
@@ -324,187 +148,59 @@ async function detectFraudV2(
     if (dupEmail && dupEmail.length > 0) {
       flags.push({
         flag: "DUPLICATE_EMAIL",
-        reason: `Email '${submission.customer_email}' sudah terdaftar: ${dupEmail[0].submission_code}`,
-        severity: "medium" as const,
-        category: "device",
-        score: 15,
+        reason: `FRAUD: Email '${submission.customer_email}' sudah terdaftar`,
+        category: "customer"
       });
     }
   }
 
-  // ============================================
-  // 5. DEVICE FARM CHECK (1 HP, Multiple Accounts)
-  // ============================================
-  if (submission.device_fingerprint_hash || submission.device_info) {
-    const deviceField = submission.device_fingerprint_hash ? "device_fingerprint_hash" : "device_info";
-    const deviceValue = submission.device_fingerprint_hash || submission.device_info;
-
-    // Find submissions with same device but different phone
-    let query = supabase
-      .from("submissions")
-      .select("id, submission_code, customer_phone, customer_name, created_at")
-      .eq(deviceField, deviceValue)
-      .eq("campaign_id", submission.campaign_id)
-      .neq("customer_phone", submission.customer_phone)
-      .gte("created_at", new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()); // Last 72 hours
-
-    const { data: deviceFarm } = await query;
-
-    if (deviceFarm && deviceFarm.length > 0) {
-      const uniquePhones = [...new Set(deviceFarm.map((s: any) => s.customer_phone))];
-
-      if (uniquePhones.length >= 2) {
-        flags.push({
-          flag: "DEVICE_FARM_MULTIPLE_ACCOUNTS",
-          reason: `Device digunakan untuk ${uniquePhones.length + 1} nomor HP berbeda dalam 72 jam (device farm)`,
-          severity: "critical" as const,
-          category: "device",
-          score: 40,
-          metadata: {
-            deviceHash: deviceValue,
-            uniquePhones: uniquePhones.length,
-            submissions: deviceFarm.map((s: any) => s.submission_code),
-          },
-        });
-      }
-    }
-  }
-
-  // ============================================
-  // 6. IP ADDRESS CHECKS
-  // ============================================
+  // 8. DUPLICATE IP
   if (fraudRules.check_duplicate_ip && submission.ip_address) {
     const { data: dupIp } = await supabase
       .from("submissions")
-      .select("id, submission_code, customer_name, customer_phone")
+      .select("id, customer_name, customer_phone")
       .eq("ip_address", submission.ip_address)
       .eq("campaign_id", submission.campaign_id)
       .neq("customer_name", submission.customer_name)
-      .limit(5);
+      .limit(3);
 
     if (dupIp && dupIp.length > 0) {
       const uniquePhones = [...new Set(dupIp.map((s: any) => s.customer_phone))];
       flags.push({
         flag: "DUPLICATE_IP",
-        reason: `IP '${submission.ip_address}' digunakan untuk ${uniquePhones.length + 1} customer berbeda`,
-        severity: "medium" as const,
-        category: "device",
-        score: 10,
-        metadata: { uniquePhones: uniquePhones.length },
+        reason: `FRAUD: IP '${submission.ip_address}' digunakan untuk ${uniquePhones.length + 1} customer berbeda`,
+        category: "device"
       });
-    }
-
-    // IP Rate limit
-    if (fraudRules.max_submissions_per_ip_per_hour > 0) {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { count: ipCount } = await supabase
-        .from("submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("ip_address", submission.ip_address)
-        .eq("campaign_id", submission.campaign_id)
-        .gte("created_at", oneHourAgo);
-
-      if (ipCount && ipCount >= fraudRules.max_submissions_per_ip_per_hour) {
-        flags.push({
-          flag: "IP_RATE_EXCEEDED",
-          reason: `${ipCount + 1} submission dari IP ini dalam 1 jam (maks: ${fraudRules.max_submissions_per_ip_per_hour})`,
-          severity: "high" as const,
-          category: "velocity",
-          score: 20,
-        });
-      }
     }
   }
 
-  // ============================================
-  // 7. DEVICE RATE LIMITS
-  // ============================================
+  // 9. DEVICE FARM
   if (fraudRules.check_duplicate_device && submission.device_info) {
     const deviceField = submission.device_fingerprint_hash ? "device_fingerprint_hash" : "device_info";
     const deviceValue = submission.device_fingerprint_hash || submission.device_info;
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    if (fraudRules.max_submissions_per_device_per_day > 0) {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count: deviceCount } = await supabase
-        .from("submissions")
-        .select("*", { count: "exact", head: true })
-        .eq(deviceField, deviceValue)
-        .eq("campaign_id", submission.campaign_id)
-        .gte("created_at", oneDayAgo);
-
-      if (deviceCount && deviceCount >= fraudRules.max_submissions_per_device_per_day) {
-        flags.push({
-          flag: "DEVICE_RATE_EXCEEDED",
-          reason: `${deviceCount + 1} submission dari device ini dalam 24 jam (maks: ${fraudRules.max_submissions_per_device_per_day})`,
-          severity: "high" as const,
-          category: "velocity",
-          score: 25,
-        });
-      }
-    }
-  }
-
-  // ============================================
-  // 8. GPS LOCATION CHECKS
-  // ============================================
-  if (fraudRules.check_duplicate_location && submission.gps_lat && submission.gps_lng) {
-    const lat = Math.round(parseFloat(submission.gps_lat) * 10000) / 10000;
-    const lng = Math.round(parseFloat(submission.gps_lng) * 10000) / 10000;
-
-    // Check for duplicate location
-    const { data: dupLocation } = await supabase
+    const { data: deviceFarm } = await supabase
       .from("submissions")
-      .select("id, submission_code, customer_name")
+      .select("id, customer_phone")
+      .eq(deviceField, deviceValue)
       .eq("campaign_id", submission.campaign_id)
-      .not("gps_lat", "is", null)
-      .not("gps_lng", "is", null)
-      .gte("gps_lat", lat - 0.001)
-      .lte("gps_lat", lat + 0.001)
-      .gte("gps_lng", lng - 0.001)
-      .lte("gps_lng", lng + 0.001)
-      .neq("customer_name", submission.customer_name)
-      .limit(10);
+      .neq("customer_phone", submission.customer_phone)
+      .gte("created_at", oneDayAgo);
 
-    if (dupLocation && dupLocation.length > 0) {
-      const uniqueNames = [...new Set(dupLocation.map((s: any) => s.customer_name))];
-      flags.push({
-        flag: "DUPLICATE_LOCATION",
-        reason: `${uniqueNames.length + 1} customer berbeda dari lokasi GPS yang sama`,
-        severity: "medium" as const,
-        category: "location",
-        score: 10,
-        metadata: { uniqueCustomers: uniqueNames.length },
-      });
-    }
-
-    // Location rate limit
-    if (fraudRules.max_same_location_per_day > 0) {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count: locCount } = await supabase
-        .from("submissions")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", submission.campaign_id)
-        .gte("gps_lat", lat - 0.001)
-        .lte("gps_lat", lat + 0.001)
-        .gte("gps_lng", lng - 0.001)
-        .lte("gps_lng", lng + 0.001)
-        .gte("created_at", oneDayAgo);
-
-      if (locCount && locCount >= fraudRules.max_same_location_per_day) {
+    if (deviceFarm && deviceFarm.length > 0) {
+      const uniquePhones = [...new Set(deviceFarm.map((s: any) => s.customer_phone))];
+      if (uniquePhones.length >= 2) {
         flags.push({
-          flag: "LOCATION_RATE_EXCEEDED",
-          reason: `${locCount + 1} submission di lokasi yang sama dalam 24 jam (maks: ${fraudRules.max_same_location_per_day})`,
-          severity: "high" as const,
-          category: "velocity",
-          score: 20,
+          flag: "DEVICE_FARM",
+          reason: `FRAUD: Device digunakan untuk ${uniquePhones.length + 1} HP berbeda dalam 24 jam`,
+          category: "device"
         });
       }
     }
   }
 
-  // ============================================
-  // 9. SUBMISSION VELOCITY CHECK (Robot Detection)
-  // ============================================
+  // 10. SUBMISSION VELOCITY
   if (fraudRules.check_submission_velocity && fraudRules.min_seconds_between_submissions > 0) {
     const { data: lastSubmission } = await supabase
       .from("submissions")
@@ -515,155 +211,32 @@ async function detectFraudV2(
       .single();
 
     if (lastSubmission) {
-      const lastTime = new Date(lastSubmission.created_at).getTime();
-      const now = Date.now();
-      const diffSeconds = (now - lastTime) / 1000;
-
+      const diffSeconds = (Date.now() - new Date(lastSubmission.created_at).getTime()) / 1000;
       if (diffSeconds < fraudRules.min_seconds_between_submissions) {
         flags.push({
-          flag: "SUBMISSION_VELOCITY",
-          reason: `Submission terlalu cepat: ${Math.round(diffSeconds)} detik sejak submission terakhir (min: ${fraudRules.min_seconds_between_submissions} detik)`,
-          severity: "medium" as const,
-          category: "behavior",
-          score: 10,
+          flag: "TOO_FAST",
+          reason: `FRAUD: Submission terlalu cepat (${Math.round(diffSeconds)} detik)`,
+          category: "behavior"
         });
       }
     }
   }
 
-  // ============================================
-  // CALCULATE FINAL SCORE & DECISION
-  // ============================================
-  const score = calculateFraudScore(flags);
-  const decision = determineDecision(score);
-  const riskLevel = getRiskLevel(score);
-
-  return { flags, score, decision, riskLevel };
-}
-
-// Upload file to Supabase Storage with metadata
-async function uploadEvidence(
-  supabase: any,
-  file: File,
-  submissionId: string,
-  submissionCode: string,
-  evidenceType: string
-): Promise<{ url: string; pHash: string; dHash: string; metadata: any } | null> {
-  try {
-    const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `${submissionCode}/${evidenceType}.${ext}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-
-    // Upload file
-    const { error: uploadError } = await supabase.storage
-      .from("screenshots")
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error(`Upload error for ${evidenceType}:`, uploadError);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("screenshots")
-      .getPublicUrl(fileName);
-
-    // Generate simple hash from file content (for similarity check)
-    // In production, use actual pHash calculation on server
-    const contentHash = await crypto.subtle.digest("SHA-256", buffer);
-    const hashArray = Array.from(new Uint8Array(contentHash));
-    const fileHash = hashArray.slice(0, 16).map(b => b.toString(16).padStart(2, "0")).join("");
-
-    return {
-      url: urlData.publicUrl,
-      pHash: fileHash,
-      dHash: fileHash,
-      metadata: {
-        fileSize: file.size,
-        type: file.type,
-        lastModified: file.lastModified,
-      },
-    };
-  } catch (error) {
-    console.error(`Upload exception for ${evidenceType}:`, error);
-    return null;
-  }
-}
-
-// Track device fingerprint
-async function trackDeviceFingerprint(
-  supabase: any,
-  fingerprintHash: string,
-  deviceInfo: string,
-  ipAddress: string,
-  customerPhone: string
-): Promise<void> {
-  try {
-    // Check if fingerprint exists
-    const { data: existing } = await supabase
-      .from("device_fingerprints")
-      .select("id, ip_addresses, linked_phones, submission_count")
-      .eq("fingerprint_hash", fingerprintHash)
-      .single();
-
-    if (existing) {
-      // Update existing
-      const ipAddresses = existing.ip_addresses || [];
-      const linkedPhones = existing.linked_phones || [];
-
-      if (!ipAddresses.includes(ipAddress)) {
-        ipAddresses.push(ipAddress);
-      }
-      if (!linkedPhones.includes(customerPhone)) {
-        linkedPhones.push(customerPhone);
-      }
-
-      await supabase
-        .from("device_fingerprints")
-        .update({
-          ip_addresses: ipAddresses,
-          linked_phones: linkedPhones,
-          submission_count: existing.submission_count + 1,
-          last_seen: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-    } else {
-      // Insert new
-      await supabase.from("device_fingerprints").insert({
-        fingerprint_hash: fingerprintHash,
-        device_info: deviceInfo,
-        ip_addresses: [ipAddress],
-        linked_phones: [customerPhone],
-        submission_count: 1,
-        user_agent: "",
-      });
-    }
-  } catch (error) {
-    console.error("Error tracking device fingerprint:", error);
-  }
+  return { flags, is_fraud: flags.length > 0 };
 }
 
 // =====================================================
 // API ROUTES
 // =====================================================
 
-// GET - Fetch submissions
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
-
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
-    const sales = searchParams.get("sales");
-    const fraudDecision = searchParams.get("fraud_decision");
 
     let query = supabase
       .from("submissions")
@@ -673,25 +246,11 @@ export async function GET(request: NextRequest) {
     if (status && status !== "all") {
       query = query.eq("status", status);
     }
-
-    if (fraudDecision && fraudDecision !== "all") {
-      query = query.eq("fraud_decision", fraudDecision);
-    }
-
-    if (sales && sales !== "all") {
-      query = query.eq("sales_name", sales);
-    }
-
     if (search) {
-      query = query.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%,sales_name.ilike.%${search}%`);
+      query = query.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
     }
 
-    const { data, error, count } = await query.range((page - 1) * limit, page * limit);
-
-    if (error) {
-      console.error("Supabase error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const { data, count } = await query.range((page - 1) * limit, page * limit);
 
     return NextResponse.json({
       data: data || [],
@@ -706,20 +265,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new submission
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const formData = await request.formData();
 
-    // Get all form fields
     const campaign_id = formData.get("campaign_id") as string;
     const campaign_name = formData.get("campaign_name") as string;
     const device_info = formData.get("device_info") as string;
     const device_fingerprint_hash = formData.get("device_fingerprint_hash") as string;
     const gps_lat = formData.get("gps_lat") as string;
     const gps_lng = formData.get("gps_lng") as string;
-    const ip_address = formData.get("ip_address") as string;
     const sales_id = formData.get("sales_id") as string;
     const sales_name = formData.get("sales_name") as string;
     const pic_id = formData.get("pic_id") as string;
@@ -730,6 +286,10 @@ export async function POST(request: NextRequest) {
     const time_on_page_ms = parseInt(formData.get("time_on_page_ms") as string) || undefined;
     const typing_speeds_raw = formData.get("typing_speeds") as string;
     const typing_speeds = typing_speeds_raw ? JSON.parse(typing_speeds_raw) : undefined;
+    const evidence_hashes_raw = formData.get("evidence_hashes") as string;
+    const evidence_hashes = evidence_hashes_raw ? JSON.parse(evidence_hashes_raw) : undefined;
+    const evidence_types_raw = formData.get("evidence_types") as string;
+    const evidence_types = evidence_types_raw ? JSON.parse(evidence_types_raw) : undefined;
 
     if (!campaign_id || !customer_name || !customer_phone) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -744,9 +304,10 @@ export async function POST(request: NextRequest) {
 
     // Normalize phone
     let phone = customer_phone.replace(/[^\d+]/g, "");
-    if (phone.startsWith("0")) {
-      phone = "+62" + phone.slice(1);
-    }
+    if (phone.startsWith("0")) phone = "+62" + phone.slice(1);
+
+    // Get IP
+    const ip_address = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
 
     // Fetch campaign fraud rules
     const { data: campaignData } = await supabase
@@ -756,29 +317,20 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Parse fraud rules
-    let fraudRules = {
+    const fraudRules = {
       require_screenshot_download: true,
       require_screenshot_register: true,
       require_screenshot_rating: true,
-      require_gps: true,
+      require_gps: false,
       check_duplicate_phone: true,
       check_duplicate_name: true,
       check_duplicate_email: true,
-      check_duplicate_ip: true,
-      max_submissions_per_ip_per_hour: 5,
-      check_duplicate_device: true,
-      max_submissions_per_device_per_day: 20,
-      check_duplicate_location: true,
-      max_same_location_per_day: 10,
-      check_submission_velocity: true,
+      check_duplicate_ip: false,
+      check_duplicate_device: false,
+      check_submission_velocity: false,
       min_seconds_between_submissions: 30,
+      ...(campaignData?.fraud_rules || {}),
     };
-    if (campaignData?.fraud_rules) {
-      const storedRules = typeof campaignData.fraud_rules === "string"
-        ? JSON.parse(campaignData.fraud_rules)
-        : campaignData.fraud_rules;
-      fraudRules = { ...fraudRules, ...storedRules };
-    }
 
     // Parse required evidence
     let requiredEvidence: { id: string; label: string; required: boolean }[] = [];
@@ -788,18 +340,13 @@ export async function POST(request: NextRequest) {
         : campaignData.required_evidence;
     }
 
-    // Check if files were actually uploaded - check all evidence IDs dynamically
-    const uploadedEvidenceIds = requiredEvidence
-      .filter(e => formData.get(`evidence_${e.id}`) !== null)
-      .map(e => e.id);
+    // Check uploaded files
+    const screenshotDownload = requiredEvidence.some(e => e.id.includes('download')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('download'))?.id}`) !== null;
+    const screenshotRegister = requiredEvidence.some(e => e.id.includes('register')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('register'))?.id}`) !== null;
+    const screenshotRating = requiredEvidence.some(e => e.id.includes('rating')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('rating'))?.id}`) !== null;
 
-    // Check specific evidence types
-    const screenshotDownload = uploadedEvidenceIds.some(id => id.includes('download'));
-    const screenshotRegister = uploadedEvidenceIds.some(id => id.includes('register'));
-    const screenshotRating = uploadedEvidenceIds.some(id => id.includes('rating'));
-
-    // Prepare submission data for fraud check
-    const submissionData = {
+    // Run fraud detection
+    const fraudResult = await detectFraud(supabase, {
       customer_phone: phone,
       customer_name,
       customer_email: customer_email || undefined,
@@ -812,33 +359,15 @@ export async function POST(request: NextRequest) {
       screenshot_download: screenshotDownload,
       screenshot_register: screenshotRegister,
       screenshot_rating: screenshotRating,
+      evidence_hashes,
+      evidence_types,
       time_on_page_ms,
       typing_speeds,
-    };
+    }, fraudRules);
 
-    // Run fraud detection v2
-    const fraudResult = await detectFraudV2(supabase, submissionData, fraudRules);
-
-    // Determine status based on decision
-    let status = "pending";
-    if (fraudResult.decision === "block") {
-      status = "fraud";
-    } else if (fraudResult.decision === "flag" || fraudResult.decision === "review") {
-      status = "pending";
-    }
-
-    // Get client IP
-    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || ip_address;
-
-    // Serialize fraud data
-    const fraudFlagsJson = JSON.stringify(fraudResult.flags.map((f) => ({
-      flag: f.flag,
-      reason: f.reason,
-      severity: f.severity,
-      category: f.category,
-      score: f.score,
-    })));
-    const fraudReasonsJson = JSON.stringify(fraudResult.flags.map((f) => f.reason));
+    const status = fraudResult.is_fraud ? "fraud" : "valid";
+    const fraudFlagsJson = JSON.stringify(fraudResult.flags);
+    const fraudReasonsJson = JSON.stringify(fraudResult.flags.map(f => f.reason));
 
     // Insert submission
     const { data, error } = await supabase
@@ -864,11 +393,11 @@ export async function POST(request: NextRequest) {
         screenshot_rating: screenshotRating,
         status,
         fraud_flags: fraudFlagsJson,
-        fraud_score: fraudResult.score,
-        fraud_decision: fraudResult.decision,
+        fraud_score: fraudResult.is_fraud ? 100 : 0,
+        fraud_decision: fraudResult.is_fraud ? "fraud" : "valid",
         fraud_reasons: fraudReasonsJson,
-        qc_notes: fraudResult.flags.length > 0 ? fraudResult.flags.map((f) => f.reason).join("; ") : null,
-        ip_address: clientIp,
+        qc_notes: fraudResult.is_fraud ? fraudResult.flags.map(f => f.reason).join("; ") : null,
+        ip_address: ip_address || null,
         user_agent: request.headers.get("user-agent"),
         behavior_data: JSON.stringify({ time_on_page_ms, typing_speeds }),
       })
@@ -876,39 +405,30 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Supabase insert error:", error);
+      console.error("Insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Track device fingerprint
-    if (device_fingerprint_hash) {
-      await trackDeviceFingerprint(supabase, device_fingerprint_hash, device_info || "", clientIp || "", phone);
-    }
-
-    // Upload evidence files and store screenshot metadata
-    const uploadedEvidence: any[] = [];
+    // Upload evidence files
     for (const evidence of requiredEvidence) {
       const file = formData.get(`evidence_${evidence.id}`) as File | null;
-      if (file) {
-        const result = await uploadEvidence(supabase, file, data.id, submissionCode, evidence.id);
-        if (result) {
-          uploadedEvidence.push({
-            evidence_type: evidence.id,
-            url: result.url,
-            pHash: result.pHash,
-            metadata: result.metadata,
-          });
+      if (file && file.size > 0) {
+        try {
+          const fileName = `${submissionCode}/${evidence.id}.${file.name.split(".").pop()}`;
+          const buffer = await file.arrayBuffer();
 
-          // Store screenshot evidence
+          await supabase.storage
+            .from("screenshots")
+            .upload(fileName, buffer, { contentType: file.type, upsert: true });
+
           await supabase.from("screenshot_evidence").insert({
             submission_id: data.id,
             evidence_type: evidence.id,
-            storage_url: result.url,
-            image_hash: result.pHash,
-            dhash: result.dHash,
-            file_size: result.metadata.fileSize,
-            aspect_ratio: 0, // Would need to calculate from image
+            storage_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`,
+            file_size: file.size,
           });
+        } catch (e) {
+          console.error("Upload error:", e);
         }
       }
     }
@@ -918,14 +438,11 @@ export async function POST(request: NextRequest) {
       data,
       submissionCode,
       status,
-      fraudScore: fraudResult.score,
-      fraudDecision: fraudResult.decision,
-      fraudRiskLevel: fraudResult.riskLevel,
+      fraudDecision: fraudResult.is_fraud ? "fraud" : "valid",
       fraudFlags: fraudResult.flags,
-      uploadedEvidence,
-      message: fraudResult.decision === "allow"
-        ? "Submission created successfully"
-        : `Submission ${fraudResult.decision}: ${fraudResult.flags.length} fraud indicator(s)`,
+      message: fraudResult.is_fraud
+        ? `FRAUD: ${fraudResult.flags.map(f => f.reason).join("; ")}`
+        : "Submission valid",
     }, { status: 201 });
   } catch (error) {
     console.error("Server error:", error);
