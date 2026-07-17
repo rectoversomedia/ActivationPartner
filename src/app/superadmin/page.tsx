@@ -270,6 +270,8 @@ export default function SuperAdminPage() {
   const [editingPic, setEditingPic] = React.useState<PIC | null>(null);
   const [showSimpleModal, setShowSimpleModal] = React.useState(false);
   const [modalType, setModalType] = React.useState<'sales' | 'pic'>('sales');
+  const [lang, setLang] = React.useState<'en' | 'id'>('id');
+  const [toast, setToast] = React.useState<{message: string; type: 'success' | 'error'} | null>(null);
 
   // Fraud rules open/close state
   const [fraudRulesOpen, setFraudRulesOpen] = React.useState(true);
@@ -308,9 +310,16 @@ export default function SuperAdminPage() {
     try {
       await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
       await loadData();
+      setToast({ message: lang === 'id' ? 'Submission dihapus!' : 'Submission deleted!', type: 'success' });
     } catch (error) {
       console.error('Delete error:', error);
+      setToast({ message: lang === 'id' ? 'Gagal menghapus!' : 'Failed to delete!', type: 'error' });
     }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
   const openCampaignEditor = (campaign?: Campaign) => {
@@ -358,7 +367,7 @@ export default function SuperAdminPage() {
 
   const saveCampaign = async () => {
     if (!editingCampaign?.name || !editingCampaign?.code) {
-      alert('Name and Code are required!');
+      showToast(lang === 'id' ? 'Nama dan Kode wajib diisi!' : 'Name and Code are required!', 'error');
       return;
     }
     setIsSaving(true);
@@ -371,7 +380,8 @@ export default function SuperAdminPage() {
       formData.append('fraud_rules', JSON.stringify(editingCampaign.fraud_rules));
       formData.append('required_evidence', JSON.stringify(editingCampaign.required_evidence));
       formData.append('form_fields', JSON.stringify(editingCampaign.form_fields));
-      formData.append('flexible_urls', JSON.stringify(editingCampaign.flexible_urls));
+      formData.append('flexible_urls', JSON.stringify(editingCampaign.flexible_urls || []));
+      formData.append('allowed_regions', JSON.stringify([]));
 
       if (editingCampaign.brand_logo_file) {
         formData.append('brand_logo', editingCampaign.brand_logo_file);
@@ -388,12 +398,14 @@ export default function SuperAdminPage() {
         await loadData();
         setShowFullEditor(false);
         setEditingCampaign(null);
+        showToast(lang === 'id' ? 'Campaign berhasil disimpan!' : 'Campaign saved successfully!', 'success');
       } else {
         const err = await res.json();
-        alert('Failed: ' + (err.error || 'Unknown error'));
+        showToast(lang === 'id' ? 'Gagal menyimpan: ' + (err.error || 'Unknown error') : 'Failed: ' + (err.error || 'Unknown error'), 'error');
       }
     } catch (error) {
       console.error('Save error:', error);
+      showToast(lang === 'id' ? 'Gagal menyimpan!' : 'Failed to save!', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -1116,13 +1128,27 @@ export default function SuperAdminPage() {
   // =====================================================
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50">
+      {/* Language Switcher */}
+      <div className="bg-slate-800 text-white">
+        <div className="max-w-6xl mx-auto px-4 py-1 flex justify-end">
+          <button onClick={() => setLang(lang === 'id' ? 'en' : 'id')} className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-slate-700 transition-colors text-sm">
+            <Globe size={16} />
+            {lang === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
+          </button>
+        </div>
+      </div>
+
       <header className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-6 text-center">
           <div className="w-[180px] h-auto mx-auto mb-4">
             <Image src="/Logo Rectoverso.png" alt="RECTOVERSO" width={180} height={72} className="w-full h-auto" priority />
           </div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Super Admin</h1>
-          <p className="text-sm text-slate-500">Campaign & Master Data Settings</p>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+            {lang === 'id' ? 'Super Admin' : 'Super Admin'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {lang === 'id' ? 'Pengaturan Campaign & Master Data' : 'Campaign & Master Data Settings'}
+          </p>
           <div className="flex justify-center gap-3 mt-4">
             <Link href="/dashboard">
               <Button variant="outline" className="border-slate-300"><CaretLeft size={16} className="mr-1" /> Dashboard</Button>
@@ -1136,10 +1162,10 @@ export default function SuperAdminPage() {
         {/* Tabs */}
         <div className="flex justify-center gap-2 mb-6 flex-wrap">
           {[
-            { id: 'dashboard' as TabType, label: 'Dashboard', icon: ChartBar },
-            { id: 'campaigns' as TabType, label: 'Campaigns', icon: Flag, count: campaigns.length },
-            { id: 'sales' as TabType, label: 'Sales', icon: Users, count: salesList.length },
-            { id: 'pics' as TabType, label: 'PICs', icon: UserCircle, count: picsList.length },
+            { id: 'dashboard' as TabType, label: lang === 'id' ? 'Dashboard' : 'Dashboard', icon: ChartBar },
+            { id: 'campaigns' as TabType, label: lang === 'id' ? 'Campaign' : 'Campaigns', icon: Flag, count: campaigns.length },
+            { id: 'sales' as TabType, label: lang === 'id' ? 'Sales' : 'Sales', icon: Users, count: salesList.length },
+            { id: 'pics' as TabType, label: lang === 'id' ? 'PIC' : 'PICs', icon: UserCircle, count: picsList.length },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -1411,6 +1437,16 @@ export default function SuperAdminPage() {
                           </div>
                         </CardContent>
                       </Card>
+                    </div>
+                  )}
+                  {/* Toast Notification */}
+                  {toast && (
+                    <div className={cn(
+                      'fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2 animate-pulse',
+                      toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+                    )}>
+                      {toast.type === 'success' ? <CheckCircle size={20} weight="fill" /> : <Warning size={20} weight="fill" />}
+                      {toast.message}
                     </div>
                   )}
                 </div>
