@@ -62,20 +62,33 @@ export async function PUT(
         brand_logo_url: formData.get('brand_logo_url') as string || null,
       };
 
-      // Handle logo file upload
+      // Handle logo file upload - store as data URL or external URL
       const logoFile = formData.get('brand_logo') as File | null;
       if (logoFile && logoFile.size > 0) {
-        const fileName = `logos/${Date.now()}_${logoFile.name}`;
+        // Try Supabase storage first
+        const fileName = `logos/${Date.now()}_${logoFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
         const buffer = await logoFile.arrayBuffer();
-        const { error: uploadError } = await supabase.storage
-          .from('brand-logos')
-          .upload(fileName, buffer);
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
+        try {
+          const { error: uploadError, data: uploadData } = await supabase.storage
             .from('brand-logos')
-            .getPublicUrl(fileName);
-          body.brand_logo_url = urlData.publicUrl;
+            .upload(fileName, buffer, { contentType: logoFile.type });
+
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('brand-logos')
+              .getPublicUrl(fileName);
+            body.brand_logo_url = urlData.publicUrl;
+          } else {
+            // Fallback: convert to base64 data URL
+            console.log('Storage upload failed, using base64:', uploadError);
+            const base64 = Buffer.from(buffer).toString('base64');
+            body.brand_logo_url = `data:${logoFile.type};base64,${base64}`;
+          }
+        } catch (storageError) {
+          console.log('Storage error, using base64:', storageError);
+          const base64 = Buffer.from(buffer).toString('base64');
+          body.brand_logo_url = `data:${logoFile.type};base64,${base64}`;
         }
       }
     } else {
