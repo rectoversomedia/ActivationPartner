@@ -13,7 +13,7 @@ import {
   Download, LinkSimple, ImageSquare, Upload, Globe,
   DotsSixVertical, ArrowsOutCardinal, CaretDown, EyeSlash,
   ToggleLeft, ToggleRight, Sliders, WarningCircle, CheckFat,
-  ListPlus, PencilSimple, UserCirclePlus
+  ListPlus, PencilSimple, UserCirclePlus, ChartBar, ShieldCheck
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -1119,9 +1119,6 @@ export default function SuperAdminPage() {
         <div className="flex justify-center gap-2 mb-6">
           {[
             { id: 'campaigns' as TabType, label: 'Campaigns', icon: Flag, count: campaigns.length },
-            { id: 'sales' as TabType, label: 'Sales', icon: User, count: salesList.length },
-            { id: 'pics' as TabType, label: 'PIC', icon: UserCircle, count: picsList.length },
-            { id: 'settings' as TabType, label: 'Settings', icon: Gear, count: 0 },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
