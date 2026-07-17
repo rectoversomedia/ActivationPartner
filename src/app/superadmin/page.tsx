@@ -1128,27 +1128,13 @@ export default function SuperAdminPage() {
   // =====================================================
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50">
-      {/* Language Switcher */}
-      <div className="bg-slate-800 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-1 flex justify-end">
-          <button onClick={() => setLang(lang === 'id' ? 'en' : 'id')} className="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-slate-700 transition-colors text-sm">
-            <Globe size={16} />
-            {lang === 'id' ? '🇮🇩 ID' : '🇬🇧 EN'}
-          </button>
-        </div>
-      </div>
-
       <header className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-6 text-center">
           <div className="w-[180px] h-auto mx-auto mb-4">
             <Image src="/Logo Rectoverso.png" alt="RECTOVERSO" width={180} height={72} className="w-full h-auto" priority />
           </div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-            {lang === 'id' ? 'Super Admin' : 'Super Admin'}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {lang === 'id' ? 'Pengaturan Campaign & Master Data' : 'Campaign & Master Data Settings'}
-          </p>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Super Admin</h1>
+          <p className="text-sm text-slate-500">Campaign & Master Data Settings</p>
           <div className="flex justify-center gap-3 mt-4">
             <Link href="/dashboard">
               <Button variant="outline" className="border-slate-300"><CaretLeft size={16} className="mr-1" /> Dashboard</Button>
