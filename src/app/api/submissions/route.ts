@@ -340,10 +340,14 @@ export async function POST(request: NextRequest) {
         : campaignData.required_evidence;
     }
 
-    // Check uploaded files
-    const screenshotDownload = requiredEvidence.some(e => e.id.includes('download')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('download'))?.id}`) !== null;
-    const screenshotRegister = requiredEvidence.some(e => e.id.includes('register')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('register'))?.id}`) !== null;
-    const screenshotRating = requiredEvidence.some(e => e.id.includes('rating')) && formData.get(`evidence_${requiredEvidence.find(e => e.id.includes('rating'))?.id}`) !== null;
+    // Check uploaded files - use exact ID match
+    const downloadEvidence = requiredEvidence.find(e => e.id === 'download' || e.id.includes('download'));
+    const registerEvidence = requiredEvidence.find(e => e.id === 'register' || e.id.includes('register'));
+    const ratingEvidence = requiredEvidence.find(e => e.id === 'rating' || e.id.includes('rating'));
+
+    const screenshotDownload = downloadEvidence ? formData.get(`evidence_${downloadEvidence.id}`) !== null : false;
+    const screenshotRegister = registerEvidence ? formData.get(`evidence_${registerEvidence.id}`) !== null : false;
+    const screenshotRating = ratingEvidence ? formData.get(`evidence_${ratingEvidence.id}`) !== null : false;
 
     // Run fraud detection
     const fraudResult = await detectFraud(supabase, {
@@ -414,21 +418,26 @@ export async function POST(request: NextRequest) {
       const file = formData.get(`evidence_${evidence.id}`) as File | null;
       if (file && file.size > 0) {
         try {
-          const fileName = `${submissionCode}/${evidence.id}.${file.name.split(".").pop()}`;
+          const ext = file.name.split(".").pop() || 'jpg';
+          const fileName = `${submissionCode}/${evidence.id}.${ext}`;
           const buffer = await file.arrayBuffer();
 
-          await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from("screenshots")
             .upload(fileName, buffer, { contentType: file.type, upsert: true });
+
+          // Continue even if upload fails (non-blocking)
+          const storageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`;
 
           await supabase.from("screenshot_evidence").insert({
             submission_id: data.id,
             evidence_type: evidence.id,
-            storage_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`,
+            storage_url: storageUrl,
             file_size: file.size,
           });
         } catch (e) {
           console.error("Upload error:", e);
+          // Continue processing even if this file fails
         }
       }
     }

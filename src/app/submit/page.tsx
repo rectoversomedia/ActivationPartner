@@ -547,7 +547,8 @@ export default function SubmitPage() {
       setShowSuccess(true);
     } catch (error) {
       console.error('Submit error:', error);
-      alert('Gagal submit. Coba lagi.');
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan. Coba lagi.';
+      alert('Gagal submit: ' + message);
     } finally {
       setIsSubmitting(false);
     }
