@@ -820,7 +820,8 @@ export default function SubmitPage() {
                             <img
                               src={evidence.example_image_url}
                               alt="Example"
-                              className="w-full h-32 object-cover rounded border border-amber-200"
+                              className="w-full h-auto rounded border border-amber-200"
+                              style={{ maxHeight: '300px', objectFit: 'contain' }}
                             />
                           </div>
                         )}
