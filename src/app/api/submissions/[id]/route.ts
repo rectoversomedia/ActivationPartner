@@ -109,3 +109,29 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE - Delete submission
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from('submissions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Supabase delete error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Submission deleted successfully' });
+  } catch (error) {
+    console.error('Server error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
