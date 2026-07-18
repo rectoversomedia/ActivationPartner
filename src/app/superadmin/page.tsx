@@ -309,12 +309,19 @@ export default function SuperAdminPage() {
   const deleteSubmission = async (id: string) => {
     if (!confirm('Hapus submission ini?')) return;
     try {
-      await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
-      await loadData();
-      setToast({ message: lang === 'id' ? 'Submission dihapus!' : 'Submission deleted!', type: 'success' });
+      const res = await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        // Optimistically remove from local state
+        setSubmissions(prev => prev.filter(s => s.id !== id));
+        setToast({ message: 'Submission dihapus!', type: 'success' });
+        setSelectedSubmission(null);
+      } else {
+        const err = await res.json();
+        setToast({ message: 'Gagal: ' + (err.error || 'Unknown'), type: 'error' });
+      }
     } catch (error) {
       console.error('Delete error:', error);
-      setToast({ message: lang === 'id' ? 'Gagal menghapus!' : 'Failed to delete!', type: 'error' });
+      setToast({ message: 'Gagal menghapus!', type: 'error' });
     }
   };
 
