@@ -759,16 +759,6 @@ export default function SubmitPage() {
                           <div className="flex-1">
                             <p className="font-semibold text-slate-900">{evidence.label}</p>
                             {evidence.required && <p className="text-xs text-red-500">Wajib</p>}
-                            {/* Example Image */}
-                            {evidence.example_image_url && (
-                              <button
-                                type="button"
-                                onClick={() => window.open(evidence.example_image_url, '_blank')}
-                                className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline"
-                              >
-                                <ImageIcon size={12} /> Lihat contoh
-                              </button>
-                            )}
                           </div>
 
                           {/* File size indicator */}
@@ -819,6 +809,20 @@ export default function SubmitPage() {
                               disabled={isCompressing[evidence.id]}
                             />
                           </label>
+                        )}
+
+                        {/* Example Image Preview */}
+                        {evidence.example_image_url && !evidenceFiles[evidence.id] && (
+                          <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-xs text-amber-700 mb-2 flex items-center gap-1">
+                              <ImageIcon size={12} /> Contoh:
+                            </p>
+                            <img
+                              src={evidence.example_image_url}
+                              alt="Example"
+                              className="w-full h-32 object-cover rounded border border-amber-200"
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
