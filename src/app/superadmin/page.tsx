@@ -309,23 +309,29 @@ export default function SuperAdminPage() {
   const deleteSubmission = async (id: string) => {
     if (!confirm('Hapus submission ini?')) return;
     try {
-      const res = await fetch(`/api/submissions/${id}`, { method: 'DELETE' });
+      // Add cache busting with timestamp
+      const res = await fetch(`/api/submissions/${id}?t=${Date.now()}`, {
+        method: 'DELETE',
+        cache: 'no-store'
+      });
+      const data = await res.json();
+
       if (res.ok) {
         // Optimistically remove from local state
         setSubmissions(prev => prev.filter(s => s.id !== id));
-        setToast({ message: 'Submission dihapus!', type: 'success' });
         setSelectedSubmission(null);
+        showToast('Submission dihapus!');
       } else {
-        const err = await res.json();
-        setToast({ message: 'Gagal: ' + (err.error || 'Unknown'), type: 'error' });
+        console.error('Delete failed:', data);
+        showToast('Gagal: ' + (data.error || 'Unknown'), 'error');
       }
     } catch (error) {
       console.error('Delete error:', error);
-      setToast({ message: 'Gagal menghapus!', type: 'error' });
+      showToast('Gagal menghapus!', 'error');
     }
   };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };

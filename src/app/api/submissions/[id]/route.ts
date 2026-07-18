@@ -117,8 +117,25 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
     const supabase = await createClient();
 
+    // First check if the submission exists
+    const { data: existing } = await supabase
+      .from('submissions')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+    }
+
+    // Delete the submission
     const { error } = await supabase
       .from('submissions')
       .delete()
@@ -129,7 +146,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ message: 'Submission deleted successfully' });
+    return NextResponse.json({ success: true, message: 'Submission deleted successfully' });
   } catch (error) {
     console.error('Server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
