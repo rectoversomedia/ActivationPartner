@@ -91,7 +91,12 @@ export async function POST(request: NextRequest) {
         const exampleFile = formData.get(`example_image_${idx}`) as File | null;
         if (exampleFile && exampleFile.size > 0) {
           const buffer = await exampleFile.arrayBuffer();
-          const base64 = Buffer.from(buffer).toString('base64');
+          const bytes = new Uint8Array(buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const base64 = btoa(binary);
           evidenceList[idx] = { ...evidenceList[idx], example_image_url: `data:${exampleFile.type};base64,${base64}` };
         }
       }
