@@ -45,5 +45,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/superadmin/:path*', '/login', '/api/auth/:path*'],
+  matcher: ['/superadmin/:path*', '/superadmin', '/login', '/api/auth/:path*'],
 };

@@ -15,14 +15,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
     }
 
+    // Debug: log the attempt
+    console.log('Login attempt:', email);
+
     // Check credentials
     const admin = ADMIN_CREDENTIALS.find(
       (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
     );
 
     if (!admin) {
+      console.log('Login failed: invalid credentials');
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    console.log('Login success:', admin.email);
 
     // Create session token (simple JWT-like token)
     const sessionToken = Buffer.from(JSON.stringify({
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Set cookie
     response.cookies.set('admin_session', sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Allow non-HTTPS for local development
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
