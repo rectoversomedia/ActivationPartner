@@ -1218,7 +1218,10 @@ export default function SuperAdminPage() {
             <Link href="/dashboard">
               <Button variant="outline" className="border-slate-300"><CaretLeft size={16} className="mr-1" /> Dashboard</Button>
             </Link>
-            <Button variant="outline" className="text-red-600 border-red-200"><SignOut size={16} className="mr-2" /> Logout</Button>
+            <Button variant="outline" className="text-red-600 border-red-200" onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              window.location.href = '/login';
+            }}><SignOut size={16} className="mr-2" /> Logout</Button>
           </div>
         </div>
       </header>
