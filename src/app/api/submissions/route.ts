@@ -98,8 +98,9 @@ async function detectFraud(
     }
   }
 
-  // 5. DUPLICATE PHONE
-  if (fraudRules.check_duplicate_phone && submission.customer_phone) {
+  // 5. DUPLICATE PHONE (Legacy - for backward compatibility)
+  // Only triggers if check_duplicate_customer is not enabled
+  if (fraudRules.check_duplicate_phone && !fraudRules.check_duplicate_customer && submission.customer_phone) {
     const { data: dupPhone } = await supabase
       .from("submissions")
       .select("id, submission_code")
@@ -111,6 +112,26 @@ async function detectFraud(
       flags.push({
         flag: "DUPLICATE_PHONE",
         reason: `FRAUD: HP '${submission.customer_phone}' sudah terdaftar (${dupPhone[0].submission_code})`,
+        category: "customer"
+      });
+    }
+  }
+
+  // 5B. SMART DUPLICATE CUSTOMER - Checks NAME + PHONE combo (Recommended)
+  // Same customer = Same name AND same phone (not just phone alone)
+  if (fraudRules.check_duplicate_customer && submission.customer_phone && submission.customer_name) {
+    const { data: dupCustomer } = await supabase
+      .from("submissions")
+      .select("id, submission_code, customer_name")
+      .eq("customer_phone", submission.customer_phone)
+      .eq("campaign_id", submission.campaign_id)
+      .ilike("customer_name", submission.customer_name.toLowerCase().trim())
+      .limit(1);
+
+    if (dupCustomer && dupCustomer.length > 0) {
+      flags.push({
+        flag: "DUPLICATE_CUSTOMER",
+        reason: `FRAUD: Customer '${submission.customer_name}' dengan HP '${submission.customer_phone}' sudah terdaftar (${dupCustomer[0].submission_code})`,
         category: "customer"
       });
     }

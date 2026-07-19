@@ -70,6 +70,7 @@ interface FraudRuleConfig {
   check_duplicate_phone: boolean;
   check_duplicate_name: boolean;
   check_duplicate_email: boolean;
+  check_duplicate_customer: boolean; // Smart check: same NAME + PHONE combo
 
   // Device/IP checks
   check_duplicate_ip: boolean;
@@ -106,28 +107,29 @@ const DEFAULT_FRAUD_RULES: FraudRuleConfig = {
   require_screenshot_download: true,
   require_screenshot_register: true,
   require_screenshot_rating: true,
-  require_gps: true,
+  require_gps: false,
   max_image_size_mb: 5,
   resize_images: true,
 
-  // Customer
-  check_duplicate_phone: true,
+  // Customer - Smart Detection
+  check_duplicate_phone: false, // Disabled - causes false positives (sales use same phone)
   check_duplicate_name: true,
   check_duplicate_email: true,
+  check_duplicate_customer: true, // Smart: same NAME + PHONE combo
 
   // Device
-  check_duplicate_ip: true,
+  check_duplicate_ip: false,
   max_submissions_per_ip_per_hour: 5,
-  check_duplicate_device: true,
+  check_duplicate_device: false,
   max_submissions_per_device_per_day: 20,
 
   // Location
   check_gps_location: false,
-  check_duplicate_location: true,
+  check_duplicate_location: false,
   max_same_location_per_day: 10,
 
   // Velocity
-  check_submission_velocity: true,
+  check_submission_velocity: false,
   min_seconds_between_submissions: 30,
 };
 
@@ -992,6 +994,15 @@ export default function SuperAdminPage() {
                 })}
                 label="Check Duplicate Email"
                 description="Flag same email address"
+              />
+              <Toggle
+                checked={editingCampaign.fraud_rules.check_duplicate_customer}
+                onChange={(v) => setEditingCampaign({
+                  ...editingCampaign,
+                  fraud_rules: { ...editingCampaign.fraud_rules, check_duplicate_customer: v }
+                })}
+                label="Check Duplicate Customer (Smart)"
+                description="Flag same NAME + PHONE combo (recommended)"
               />
 
               <div className="border-t border-slate-200 my-2" />
