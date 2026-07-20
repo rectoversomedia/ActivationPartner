@@ -111,6 +111,7 @@ export default function DashboardPage() {
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
   const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string}[]>([]);
   const [loadingScreenshots, setLoadingScreenshots] = React.useState(false);
+  const [imageModal, setImageModal] = React.useState<{url: string; type: string} | null>(null);
   const [view, setView] = React.useState<"submissions" | "sales" | "daily">("submissions");
   const [datePreset, setDatePreset] = React.useState<string>("today");
   const [dateFrom, setDateFrom] = React.useState<string>(todayStr);
@@ -905,28 +906,25 @@ export default function DashboardPage() {
                     <p className="text-sm text-slate-500">Tidak ada screenshot</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-2">
                     {submissionScreenshots.map((shot) => (
-                      <a
+                      <button
                         key={shot.id}
-                        href={shot.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                        type="button"
+                        onClick={() => setImageModal({ url: shot.url, type: shot.type })}
+                        className="relative group"
+                        title={shot.type}
                       >
                         <img
                           src={shot.url}
                           alt={shot.type}
-                          className="w-14 h-14 object-cover rounded border border-slate-200"
+                          className="w-full h-24 object-cover rounded-lg border border-slate-200 group-hover:border-blue-500 transition-colors"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="%23e2e8f0"/><text x="28" y="28" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="10">No img</text></svg>';
+                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="96"><rect width="100" height="96" fill="%23e2e8f0"/><text x="50" y="48" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="10">No img</text></svg>';
                           }}
                         />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">{shot.type}</p>
-                          <p className="text-xs text-blue-600">View full size ↗</p>
-                        </div>
-                      </a>
+                        <p className="text-xs text-slate-600 mt-1 truncate">{shot.type}</p>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -937,6 +935,31 @@ export default function DashboardPage() {
                 {formatDate(selectedSubmission.created_at)}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {imageModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setImageModal(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2 px-2">
+              <p className="text-white text-sm font-medium">{imageModal.type}</p>
+              <button onClick={() => setImageModal(null)} className="text-white hover:bg-white/20 p-1 rounded-lg transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="bg-white rounded-xl overflow-hidden shadow-2xl">
+              <img
+                src={imageModal.url}
+                alt={imageModal.type}
+                className="w-full max-h-[80vh] object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="%23f1f5f9"/><text x="300" y="200" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="20">Gambar tidak tersedia</text></svg>';
+                }}
+              />
+            </div>
+            <p className="text-center text-xs text-white/70 mt-2">Klik di luar untuk tutup</p>
           </div>
         </div>
       )}
