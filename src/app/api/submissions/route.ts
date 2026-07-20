@@ -279,6 +279,11 @@ export async function GET(request: NextRequest) {
       page,
       limit,
       totalPages: Math.ceil((count || 0) / limit),
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
     });
   } catch (error) {
     console.error("Server error:", error);

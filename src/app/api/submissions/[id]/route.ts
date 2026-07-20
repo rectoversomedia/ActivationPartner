@@ -127,18 +127,25 @@ export async function DELETE(
     // First check if the submission exists
     const { data: existing } = await supabase
       .from('submissions')
-      .select('id')
+      .select('id, submission_code')
       .eq('id', id)
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'Already deleted or not found' });
+    }
+
+    // Delete related evidence first (non-blocking)
+    try {
+      await supabase.from('screenshot_evidence').delete().eq('submission_id', id);
+    } catch (e) {
+      console.log('No screenshot_evidence to delete:', e);
     }
 
     // Delete the submission
-    const { error } = await supabase
+    const { error, count } = await supabase
       .from('submissions')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('id', id);
 
     if (error) {
@@ -146,7 +153,25 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Submission deleted successfully' });
+    console.log(`Deleted submission ${existing.submission_code} (${id}), rows affected: ${count}`);
+
+    // Verify deletion
+    const { data: verifyDeleted } = await supabase
+      .from('submissions')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (verifyDeleted) {
+      console.error(`DELETE FAILED: submission ${id} still exists after delete`);
+      return NextResponse.json({ error: 'Delete failed - RLS policy blocking' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Submission deleted successfully',
+      deleted: existing.submission_code
+    });
   } catch (error) {
     console.error('Server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

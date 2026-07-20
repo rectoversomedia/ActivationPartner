@@ -292,9 +292,9 @@ export default function SuperAdminPage() {
     setIsLoading(true);
     try {
       const [campRes, masterRes, subRes] = await Promise.all([
-        fetch('/api/campaigns'),
-        fetch('/api/master-data?type=all'),
-        fetch('/api/submissions?limit=1000'),
+        fetch('/api/campaigns', { cache: 'no-store' }),
+        fetch('/api/master-data?type=all', { cache: 'no-store' }),
+        fetch(`/api/submissions?limit=1000&t=${Date.now()}`, { cache: 'no-store' }),
       ]);
       const campData = await campRes.json();
       const masterData = await masterRes.json();
@@ -317,15 +317,21 @@ export default function SuperAdminPage() {
       // Add cache busting with timestamp
       const res = await fetch(`/api/submissions/${id}?t=${Date.now()}`, {
         method: 'DELETE',
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
       });
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         // Optimistically remove from local state
         setSubmissions(prev => prev.filter(s => s.id !== id));
         setSelectedSubmission(null);
-        showToast('Submission dihapus!');
+        showToast(`Submission ${data.deleted || ''} dihapus!`);
+
+        // Force reload after delete to verify
+        setTimeout(() => {
+          loadData();
+        }, 500);
       } else {
         console.error('Delete failed:', data);
         showToast('Gagal: ' + (data.error || 'Unknown'), 'error');
