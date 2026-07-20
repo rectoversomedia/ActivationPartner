@@ -39,7 +39,7 @@ export async function GET(
       return NextResponse.json({ data: screenshots });
     }
 
-    // Fallback: build URLs from storage path (works for old submissions)
+    // Fallback: build URLs from storage path with .jpg/.png/.webp attempt
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const code = submission.submission_code;
     const fallbackData = [];

@@ -666,6 +666,7 @@ export default function DashboardPage() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedSubmission(sub);
+                                loadScreenshots(sub.id);
                               }}
                               className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600"
                               title="View Detail"
