@@ -74,13 +74,14 @@ export async function POST() {
               updated = true;
               console.log(`Migrated ${campaign.name} evidence ${idx} -> ${urlData.publicUrl}`);
             } else {
-              console.error(`Upload failed for ${campaign.name} evidence ${idx}:`, JSON.stringify(uploadError));
-              results.push({ id: campaign.id, name: campaign.name, status: 'error', message: `Upload failed at ${idx}: ${JSON.stringify(uploadError)}` });
+              // Bucket not found or upload error - keep base64
+              console.log(`Storage upload failed for ${campaign.name} evidence ${idx}, keeping base64:`, uploadError);
+              results.push({ id: campaign.id, name: campaign.name, status: 'skipped', message: `Bucket error at ${idx}, kept base64` });
               newEvidenceList.push(ev);
             }
           } catch (uploadErr: any) {
             console.error(`Upload exception for ${campaign.name} evidence ${idx}:`, uploadErr?.message || uploadErr);
-            results.push({ id: campaign.id, name: campaign.name, status: 'error', message: `Exception at ${idx}: ${uploadErr?.message}` });
+            results.push({ id: campaign.id, name: campaign.name, status: 'skipped', message: `Exception at ${idx}, kept base64` });
             newEvidenceList.push(ev);
           }
         } else {
