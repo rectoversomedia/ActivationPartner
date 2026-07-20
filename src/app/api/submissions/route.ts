@@ -36,14 +36,14 @@ async function detectFraud(
 ): Promise<{ flags: FraudFlag[]; is_fraud: boolean }> {
   const flags: FraudFlag[] = [];
 
-  // 1. MISSING EVIDENCE
-  if (fraudRules.require_screenshot_download && !submission.screenshot_download) {
+  // 1. MISSING EVIDENCE (only check if campaign requires it)
+  if (fraudRules.require_screenshot_download && submission.screenshot_download === false) {
     flags.push({ flag: "MISSING_DOWNLOAD", reason: "Screenshot Download belum diupload", category: "evidence" });
   }
-  if (fraudRules.require_screenshot_register && !submission.screenshot_register) {
+  if (fraudRules.require_screenshot_register && submission.screenshot_register === false) {
     flags.push({ flag: "MISSING_REGISTER", reason: "Screenshot Registrasi belum diupload", category: "evidence" });
   }
-  if (fraudRules.require_screenshot_rating && !submission.screenshot_rating) {
+  if (fraudRules.require_screenshot_rating && submission.screenshot_rating === false) {
     flags.push({ flag: "MISSING_RATING", reason: "Screenshot Rating & Review belum diupload", category: "evidence" });
   }
 
@@ -342,20 +342,25 @@ export async function POST(request: NextRequest) {
       .eq("id", campaign_id)
       .single();
 
-    // Parse fraud rules
+    // Parse fraud rules - default values from campaign
     const fraudRules = {
-      require_screenshot_download: true,
-      require_screenshot_register: true,
-      require_screenshot_rating: true,
-      require_gps: false,
-      check_duplicate_phone: true,
-      check_duplicate_name: true,
-      check_duplicate_email: true,
-      check_duplicate_ip: false,
-      check_duplicate_device: false,
-      check_submission_velocity: false,
-      min_seconds_between_submissions: 30,
-      ...(campaignData?.fraud_rules || {}),
+      require_screenshot_download: campaignData?.fraud_rules?.require_screenshot_download ?? false,
+      require_screenshot_register: campaignData?.fraud_rules?.require_screenshot_register ?? false,
+      require_screenshot_rating: campaignData?.fraud_rules?.require_screenshot_rating ?? false,
+      require_gps: campaignData?.fraud_rules?.require_gps ?? false,
+      check_duplicate_phone: campaignData?.fraud_rules?.check_duplicate_phone ?? false,
+      check_duplicate_name: campaignData?.fraud_rules?.check_duplicate_name ?? false,
+      check_duplicate_email: campaignData?.fraud_rules?.check_duplicate_email ?? false,
+      check_duplicate_customer: campaignData?.fraud_rules?.check_duplicate_customer ?? false,
+      check_duplicate_ip: campaignData?.fraud_rules?.check_duplicate_ip ?? false,
+      check_duplicate_device: campaignData?.fraud_rules?.check_duplicate_device ?? false,
+      max_submissions_per_ip_per_hour: campaignData?.fraud_rules?.max_submissions_per_ip_per_hour ?? 5,
+      max_submissions_per_device_per_day: campaignData?.fraud_rules?.max_submissions_per_device_per_day ?? 20,
+      check_gps_location: campaignData?.fraud_rules?.check_gps_location ?? false,
+      check_duplicate_location: campaignData?.fraud_rules?.check_duplicate_location ?? false,
+      max_same_location_per_day: campaignData?.fraud_rules?.max_same_location_per_day ?? 10,
+      check_submission_velocity: campaignData?.fraud_rules?.check_submission_velocity ?? false,
+      min_seconds_between_submissions: campaignData?.fraud_rules?.min_seconds_between_submissions ?? 30,
     };
 
     // Parse required evidence
@@ -366,14 +371,47 @@ export async function POST(request: NextRequest) {
         : campaignData.required_evidence;
     }
 
-    // Check uploaded files - use exact ID match and formData.has() for proper check
-    const downloadEvidence = requiredEvidence.find(e => e.id === 'download' || e.id.includes('download'));
-    const registerEvidence = requiredEvidence.find(e => e.id === 'register' || e.id.includes('register'));
-    const ratingEvidence = requiredEvidence.find(e => e.id === 'rating' || e.id.includes('rating'));
+    // Check uploaded files - use multiple match strategies (id or label)
+    const downloadEvidence = requiredEvidence.find(e =>
+      e.id === 'download' ||
+      e.id.includes('download') ||
+      e.label?.toLowerCase().includes('download')
+    );
+    const registerEvidence = requiredEvidence.find(e =>
+      e.id === 'register' ||
+      e.id.includes('register') ||
+      e.label?.toLowerCase().includes('registr')
+    );
+    const ratingEvidence = requiredEvidence.find(e =>
+      e.id === 'rating' ||
+      e.id.includes('rating') ||
+      e.label?.toLowerCase().includes('rating') ||
+      e.label?.toLowerCase().includes('review')
+    );
 
-    const screenshotDownload = downloadEvidence ? formData.has(`evidence_${downloadEvidence.id}`) : false;
-    const screenshotRegister = registerEvidence ? formData.has(`evidence_${registerEvidence.id}`) : false;
-    const screenshotRating = ratingEvidence ? formData.has(`evidence_${ratingEvidence.id}`) : false;
+    // Check formData keys for evidence uploads
+    const hasEvidenceFile = (evidenceId: string) => {
+      // Try exact key first
+      if (formData.has(`evidence_${evidenceId}`)) return true;
+      // Try by filename pattern
+      for (const key of Array.from(formData.keys())) {
+        if (key.startsWith('evidence_')) {
+          const file = formData.get(key);
+          if (file && file instanceof File && file.size > 0) {
+            // Match by evidence type pattern in key
+            const keyLower = key.toLowerCase();
+            if (evidenceId === 'download' && keyLower.includes('download')) return true;
+            if (evidenceId === 'register' && keyLower.includes('register')) return true;
+            if (evidenceId === 'rating' && (keyLower.includes('rating') || keyLower.includes('review'))) return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    const screenshotDownload = downloadEvidence ? hasEvidenceFile(downloadEvidence.id) : false;
+    const screenshotRegister = registerEvidence ? hasEvidenceFile(registerEvidence.id) : false;
+    const screenshotRating = ratingEvidence ? hasEvidenceFile(ratingEvidence.id) : false;
 
     // Run fraud detection
     const fraudResult = await detectFraud(supabase, {
