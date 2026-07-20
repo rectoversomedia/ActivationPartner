@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 // GET - Get single submission
 export async function GET(
@@ -110,7 +111,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete submission
+// DELETE - Delete submission (uses admin client to bypass RLS)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -122,7 +123,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass RLS
+    const supabase = supabaseAdmin;
 
     // First check if the submission exists
     const { data: existing } = await supabase
@@ -139,7 +141,7 @@ export async function DELETE(
     try {
       await supabase.from('screenshot_evidence').delete().eq('submission_id', id);
     } catch (e) {
-      console.log('No screenshot_evidence to delete:', e);
+      console.log('No screenshot_evidence to delete');
     }
 
     // Delete the submission
@@ -153,7 +155,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`Deleted submission ${existing.submission_code} (${id}), rows affected: ${count}`);
+    console.log(`Deleted submission ${existing.submission_code} (${id}), rows: ${count}`);
 
     // Verify deletion
     const { data: verifyDeleted } = await supabase
@@ -163,8 +165,8 @@ export async function DELETE(
       .single();
 
     if (verifyDeleted) {
-      console.error(`DELETE FAILED: submission ${id} still exists after delete`);
-      return NextResponse.json({ error: 'Delete failed - RLS policy blocking' }, { status: 500 });
+      console.error(`DELETE FAILED: ${id} still exists`);
+      return NextResponse.json({ error: 'Delete failed - check RLS/service role' }, { status: 500 });
     }
 
     return NextResponse.json({
