@@ -435,6 +435,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload evidence files (non-blocking - submission continues even if upload fails)
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     for (const evidence of requiredEvidence) {
       const fileKey = `evidence_${evidence.id}`;
       const file = formData.get(fileKey) as File | null;
@@ -442,24 +443,32 @@ export async function POST(request: NextRequest) {
       if (file && file.size > 0) {
         try {
           const ext = (file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
-          const fileName = `${submissionCode}/${evidence.id}.${ext}`;
+          // Normalize evidence id to simple word (download/register/rating)
+          const evIdLower = evidence.id.toLowerCase();
+          let normalizedId = evidence.id;
+          if (evIdLower.includes('download')) normalizedId = 'download';
+          else if (evIdLower.includes('register')) normalizedId = 'register';
+          else if (evIdLower.includes('rating') || evIdLower.includes('review')) normalizedId = 'rating';
+
+          const fileName = `${submissionCode}/${normalizedId}.${ext}`;
           const buffer = await file.arrayBuffer();
 
-          // Try to upload to Supabase Storage
-          const storageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`;
+          // Upload to Supabase Storage
+          const storageUrl = `${baseUrl}/storage/v1/object/public/screenshots/${fileName}`;
 
           try {
             await supabase.storage
               .from("screenshots")
               .upload(fileName, buffer, { contentType: file.type, upsert: true });
-          } catch (uploadErr) {
-            console.log('Storage upload failed, continuing with data URL');
+            console.log(`Uploaded ${fileName} (${file.size} bytes)`);
+          } catch (uploadErr: any) {
+            console.log(`Storage upload failed for ${fileName}:`, uploadErr?.message);
           }
 
-          // Record evidence in database
+          // Record evidence in database with normalized storage URL
           await supabase.from("screenshot_evidence").insert({
             submission_id: data.id,
-            evidence_type: evidence.id,
+            evidence_type: evidence.label,
             storage_url: storageUrl,
             file_size: file.size,
           });
