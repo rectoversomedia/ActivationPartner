@@ -823,6 +823,9 @@ export default function SubmitPage() {
                               alt="Example"
                               className="w-full h-auto rounded border border-amber-200"
                               style={{ maxHeight: '300px', objectFit: 'contain' }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
                             />
                           </div>
                         )}

@@ -85,19 +85,34 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Handle example images for evidence
+      // Handle example images for evidence - upload to storage to avoid huge base64 in JSON
       const evidenceList = [...body.required_evidence];
       for (let idx = 0; idx < evidenceList.length; idx++) {
         const exampleFile = formData.get(`example_image_${idx}`) as File | null;
         if (exampleFile && exampleFile.size > 0) {
           const buffer = await exampleFile.arrayBuffer();
-          const bytes = new Uint8Array(buffer);
-          let binary = '';
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
+          const fileName = `examples/${Date.now()}_${idx}_${exampleFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+
+          try {
+            const { error: uploadError, data: uploadData } = await supabase.storage
+              .from('brand-logos')
+              .upload(fileName, buffer, { contentType: exampleFile.type });
+
+            if (!uploadError && uploadData) {
+              const { data: urlData } = supabase.storage
+                .from('brand-logos')
+                .getPublicUrl(fileName);
+              evidenceList[idx] = { ...evidenceList[idx], example_image_url: urlData.publicUrl };
+            } else {
+              // Fallback: convert to base64 data URL
+              const base64 = Buffer.from(buffer).toString('base64');
+              evidenceList[idx] = { ...evidenceList[idx], example_image_url: `data:${exampleFile.type};base64,${base64}` };
+            }
+          } catch (storageError) {
+            // Fallback: convert to base64 data URL
+            const base64 = Buffer.from(buffer).toString('base64');
+            evidenceList[idx] = { ...evidenceList[idx], example_image_url: `data:${exampleFile.type};base64,${base64}` };
           }
-          const base64 = btoa(binary);
-          evidenceList[idx] = { ...evidenceList[idx], example_image_url: `data:${exampleFile.type};base64,${base64}` };
         }
       }
       body.required_evidence = evidenceList;
