@@ -9,28 +9,72 @@ export async function GET(
     const { id } = await params;
     const supabase = await createClient();
 
+    // Get submission to find storage path
+    const { data: submission } = await supabase
+      .from('submissions')
+      .select('submission_code, screenshot_download, screenshot_register, screenshot_rating')
+      .eq('id', id)
+      .single();
+
+    if (!submission) {
+      return NextResponse.json({ data: [] });
+    }
+
+    // Try to get screenshots from table
     const { data, error } = await supabase
       .from('screenshot_evidence')
       .select('id, evidence_type, storage_url, file_size, created_at')
       .eq('submission_id', id)
       .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // If table exists and has data, use it
+    if (!error && data && data.length > 0) {
+      const screenshots = data.map((s) => ({
+        id: s.id,
+        type: s.evidence_type,
+        url: s.storage_url,
+        file_size: s.file_size,
+        created_at: s.created_at,
+      }));
+      return NextResponse.json({ data: screenshots });
     }
 
-    const screenshots = (data || []).map((s) => ({
-      id: s.id,
-      type: s.evidence_type,
-      url: s.storage_url,
-      file_size: s.file_size,
-      created_at: s.created_at,
-    }));
+    // Fallback: build URLs from storage path (works for old submissions)
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const code = submission.submission_code;
+    const fallbackData = [];
 
-    return NextResponse.json({ data: screenshots });
+    if (submission.screenshot_download && baseUrl) {
+      fallbackData.push({
+        id: `${code}-download`,
+        type: 'Screenshot Download',
+        url: `${baseUrl}/storage/v1/object/public/screenshots/${code}/download.jpg`,
+        file_size: null,
+        created_at: null,
+      });
+    }
+    if (submission.screenshot_register && baseUrl) {
+      fallbackData.push({
+        id: `${code}-register`,
+        type: 'Screenshot Registrasi',
+        url: `${baseUrl}/storage/v1/object/public/screenshots/${code}/register.jpg`,
+        file_size: null,
+        created_at: null,
+      });
+    }
+    if (submission.screenshot_rating && baseUrl) {
+      fallbackData.push({
+        id: `${code}-rating`,
+        type: 'Screenshot Rating/Review',
+        url: `${baseUrl}/storage/v1/object/public/screenshots/${code}/rating.jpg`,
+        file_size: null,
+        created_at: null,
+      });
+    }
+
+    return NextResponse.json({ data: fallbackData });
   } catch (error) {
     console.error('Server error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ data: [], error: 'Internal server error' }, { status: 500 });
   }
 }
