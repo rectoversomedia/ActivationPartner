@@ -109,6 +109,8 @@ export default function DashboardPage() {
   const [salesFilter, setSalesFilter] = React.useState<string>("all");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
+  const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string}[]>([]);
+  const [loadingScreenshots, setLoadingScreenshots] = React.useState(false);
   const [view, setView] = React.useState<"submissions" | "sales" | "daily">("submissions");
   const [datePreset, setDatePreset] = React.useState<string>("today");
   const [dateFrom, setDateFrom] = React.useState<string>(todayStr);
@@ -210,6 +212,25 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   }, []);
+
+  // Load screenshots for selected submission
+  const loadScreenshots = async (submissionId: string) => {
+    setLoadingScreenshots(true);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/screenshots`);
+      const data = await res.json();
+      if (data.data) {
+        setSubmissionScreenshots(data.data);
+      } else {
+        setSubmissionScreenshots([]);
+      }
+    } catch (error) {
+      console.error('Load screenshots error:', error);
+      setSubmissionScreenshots([]);
+    } finally {
+      setLoadingScreenshots(false);
+    }
+  };
 
   React.useEffect(() => {
     fetchData();
@@ -584,7 +605,7 @@ export default function DashboardPage() {
                       return (
                         <tr
                           key={sub.submission_code}
-                          onClick={() => setSelectedSubmission(sub)}
+                          onClick={() => { setSelectedSubmission(sub); loadScreenshots(sub.id); }}
                           className={cn(
                             "hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 transition-all duration-200 cursor-pointer",
                             sub.status === "fraud" && "bg-red-50/30"
@@ -867,6 +888,48 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
+
+              {/* Screenshots */}
+              <div>
+                <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                  <Camera size={16} /> Screenshots Bukti
+                </p>
+                {loadingScreenshots ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs text-slate-500 mt-2">Loading...</p>
+                  </div>
+                ) : submissionScreenshots.length === 0 ? (
+                  <div className="p-4 bg-slate-50 rounded-lg text-center">
+                    <p className="text-sm text-slate-500">Tidak ada screenshot</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {submissionScreenshots.map((shot) => (
+                      <a
+                        key={shot.id}
+                        href={shot.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <img
+                          src={shot.url}
+                          alt={shot.type}
+                          className="w-14 h-14 object-cover rounded border border-slate-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="%23e2e8f0"/><text x="28" y="28" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="10">No img</text></svg>';
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{shot.type}</p>
+                          <p className="text-xs text-blue-600">View full size ↗</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Clock size={16} />

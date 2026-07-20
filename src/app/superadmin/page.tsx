@@ -275,6 +275,8 @@ export default function SuperAdminPage() {
   const [modalType, setModalType] = React.useState<'sales' | 'pic'>('sales');
   const [lang, setLang] = React.useState<'en' | 'id'>('id');
   const [toast, setToast] = React.useState<{message: string; type: 'success' | 'error'} | null>(null);
+  const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string}[]>([]);
+  const [loadingScreenshots, setLoadingScreenshots] = React.useState(false);
 
   // Fraud rules open/close state
   const [fraudRulesOpen, setFraudRulesOpen] = React.useState(true);
@@ -336,6 +338,25 @@ export default function SuperAdminPage() {
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  // Load screenshots for selected submission
+  const loadScreenshots = async (submissionId: string) => {
+    setLoadingScreenshots(true);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/screenshots`);
+      const data = await res.json();
+      if (data.data) {
+        setSubmissionScreenshots(data.data);
+      } else {
+        setSubmissionScreenshots([]);
+      }
+    } catch (error) {
+      console.error('Load screenshots error:', error);
+      setSubmissionScreenshots([]);
+    } finally {
+      setLoadingScreenshots(false);
+    }
   };
 
   const openCampaignEditor = (campaign?: Campaign) => {
@@ -1452,7 +1473,7 @@ export default function SuperAdminPage() {
                                 </td>
                                 <td className="px-3 py-3">
                                   <div className="flex items-center justify-center gap-1">
-                                    <button onClick={() => setSelectedSubmission(sub)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Detail"><Eye size={16} /></button>
+                                    <button onClick={() => { setSelectedSubmission(sub); loadScreenshots(sub.id); }} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Detail & Screenshots"><Eye size={16} /></button>
                                     <button onClick={() => deleteSubmission(sub.id)} className="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Hapus"><Trash size={16} /></button>
                                   </div>
                                 </td>
@@ -1497,6 +1518,51 @@ export default function SuperAdminPage() {
                               ))}
                             </div>
                           )}
+
+                          {/* Screenshots */}
+                          <div className="mb-4">
+                            <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                              <Camera size={16} /> Screenshots Bukti
+                            </p>
+                            {loadingScreenshots ? (
+                              <div className="text-center py-4">
+                                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                                <p className="text-xs text-slate-500 mt-2">Loading...</p>
+                              </div>
+                            ) : submissionScreenshots.length === 0 ? (
+                              <div className="p-4 bg-slate-50 rounded-lg text-center">
+                                <p className="text-sm text-slate-500">Tidak ada screenshot</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {submissionScreenshots.map((shot, i) => (
+                                  <a
+                                    key={shot.id}
+                                    href={shot.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block p-2 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <img
+                                        src={shot.url}
+                                        alt={shot.type}
+                                        className="w-16 h-16 object-cover rounded border border-slate-200"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="%23e2e8f0"/><text x="32" y="32" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="10">No img</text></svg>';
+                                        }}
+                                      />
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-slate-900">{shot.type}</p>
+                                        <p className="text-xs text-blue-600">Click to view full size ↗</p>
+                                      </div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
                           <div className="flex justify-between items-center text-sm text-slate-500">
                             <span>{new Date(selectedSubmission.created_at).toLocaleString('id-ID')}</span>
                             <Button variant="outline" onClick={() => deleteSubmission(selectedSubmission.id)} className="text-red-600 border-red-200">
