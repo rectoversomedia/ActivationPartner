@@ -3,20 +3,26 @@
 -- Run this in Supabase SQL Editor (https://app.supabase.com)
 -- =====================================================
 
+-- Drop existing policies first (if any)
+DROP POLICY IF EXISTS "Enable delete for all users" ON submissions;
+
 -- Option 1: Disable RLS completely (for development/testing)
 ALTER TABLE submissions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE screenshot_evidence DISABLE ROW LEVEL SECURITY;
 
--- Option 2: OR add specific DELETE policies (for production)
--- DROP POLICY IF EXISTS "Enable delete for all users" ON submissions;
--- CREATE POLICY "Enable delete for all users" ON submissions
---   FOR DELETE USING (true);
---
--- DROP POLICY IF EXISTS "Enable delete for all users" ON screenshot_evidence;
--- CREATE POLICY "Enable delete for all users" ON screenshot_evidence
---   FOR DELETE USING (true);
+-- Add permissive DELETE policy
+CREATE POLICY "Enable delete for all users" ON submissions
+  FOR DELETE USING (true);
+
+-- Option 2: Also add permissive policies for INSERT/UPDATE
+DROP POLICY IF EXISTS "Enable insert for all users" ON submissions;
+CREATE POLICY "Enable insert for all users" ON submissions
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable update for all users" ON submissions;
+CREATE POLICY "Enable update for all users" ON submissions
+  FOR UPDATE USING (true);
 
 -- Verify
 SELECT tablename, rowsecurity FROM pg_tables
 WHERE schemaname = 'public'
-  AND tablename IN ('submissions', 'screenshot_evidence');
+  AND tablename = 'submissions';
