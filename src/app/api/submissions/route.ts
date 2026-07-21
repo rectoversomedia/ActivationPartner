@@ -338,9 +338,11 @@ export async function POST(request: NextRequest) {
     // Fetch campaign fraud rules
     const { data: campaignData } = await supabase
       .from("campaigns")
-      .select("id, name, fraud_rules, required_evidence")
+      .select("id, name, code, fraud_rules, required_evidence")
       .eq("id", campaign_id)
       .single();
+
+    const campaignCode = campaignData?.code || "default";
 
     // Parse fraud rules - default values from campaign
     const fraudRules = {
@@ -371,47 +373,43 @@ export async function POST(request: NextRequest) {
         : campaignData.required_evidence;
     }
 
-    // Check uploaded files - use multiple match strategies (id or label)
-    const downloadEvidence = requiredEvidence.find(e =>
-      e.id === 'download' ||
-      e.id.includes('download') ||
-      e.label?.toLowerCase().includes('download')
-    );
-    const registerEvidence = requiredEvidence.find(e =>
-      e.id === 'register' ||
-      e.id.includes('register') ||
-      e.label?.toLowerCase().includes('registr')
-    );
-    const ratingEvidence = requiredEvidence.find(e =>
-      e.id === 'rating' ||
-      e.id.includes('rating') ||
-      e.label?.toLowerCase().includes('rating') ||
-      e.label?.toLowerCase().includes('review')
-    );
-
-    // Check formData keys for evidence uploads
-    const hasEvidenceFile = (evidenceId: string) => {
-      // Try exact key first
-      if (formData.has(`evidence_${evidenceId}`)) return true;
-      // Try by filename pattern
-      for (const key of Array.from(formData.keys())) {
-        if (key.startsWith('evidence_')) {
-          const file = formData.get(key);
-          if (file && file instanceof File && file.size > 0) {
-            // Match by evidence type pattern in key
-            const keyLower = key.toLowerCase();
-            if (evidenceId === 'download' && keyLower.includes('download')) return true;
-            if (evidenceId === 'register' && keyLower.includes('register')) return true;
-            if (evidenceId === 'rating' && (keyLower.includes('rating') || keyLower.includes('review'))) return true;
-          }
-        }
+    // Build a per-evidence file map: { evidenceId → File | null }
+    // Works for any number/type of evidence, not just download/register/rating
+    const evidenceFileMap: Record<string, File | null> = {};
+    for (const ev of requiredEvidence) {
+      evidenceFileMap[ev.id] = null;
+    }
+    for (const key of Array.from(formData.keys())) {
+      if (!key.startsWith("evidence_")) continue;
+      const file = formData.get(key);
+      if (!(file instanceof File) || file.size === 0) continue;
+      const evId = key.slice("evidence_".length);
+      if (evId in evidenceFileMap) {
+        evidenceFileMap[evId] = file;
+      } else {
+        // Fallback: match by label keyword
+        const keyLower = key.toLowerCase().replace("evidence_", "");
+        const matched = requiredEvidence.find(e =>
+          e.id.toLowerCase().includes(keyLower) ||
+          keyLower.includes(e.id.toLowerCase()) ||
+          keyLower.includes((e.label || "").toLowerCase().split(" ")[0])
+        );
+        if (matched) evidenceFileMap[matched.id] = file;
       }
-      return false;
-    };
+    }
 
-    const screenshotDownload = downloadEvidence ? hasEvidenceFile(downloadEvidence.id) : false;
-    const screenshotRegister = registerEvidence ? hasEvidenceFile(registerEvidence.id) : false;
-    const screenshotRating = ratingEvidence ? hasEvidenceFile(ratingEvidence.id) : false;
+    // Back-compat booleans for fraud detector
+    const findByKeyword = (kw: string) =>
+      requiredEvidence.find(e =>
+        e.id.toLowerCase().includes(kw) ||
+        (e.label || "").toLowerCase().includes(kw)
+      );
+    const downloadEvidence = findByKeyword("download");
+    const registerEvidence = findByKeyword("register");
+    const ratingEvidence = findByKeyword("rating") || findByKeyword("review");
+    const screenshotDownload = downloadEvidence ? !!evidenceFileMap[downloadEvidence.id] : false;
+    const screenshotRegister = registerEvidence ? !!evidenceFileMap[registerEvidence.id] : false;
+    const screenshotRating = ratingEvidence ? !!evidenceFileMap[ratingEvidence.id] : false;
 
     // Run fraud detection
     const fraudResult = await detectFraud(supabase, {
@@ -477,48 +475,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Upload evidence files (non-blocking - submission continues even if upload fails)
+    // Upload evidence files to Supabase Storage
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const uploadedFiles: { evidenceId: string; url: string; storagePath: string }[] = [];
+    const failedUploads: { evidenceId: string; reason: string }[] = [];
+
     for (const evidence of requiredEvidence) {
-      const fileKey = `evidence_${evidence.id}`;
-      const file = formData.get(fileKey) as File | null;
+      const file = evidenceFileMap[evidence.id];
+      if (!file || file.size === 0) continue;
 
-      if (file && file.size > 0) {
-        try {
-          const ext = (file.name.includes('.')) ? file.name.split('.').pop() : 'jpg';
-          // Normalize evidence id to simple word (download/register/rating)
-          const evIdLower = evidence.id.toLowerCase();
-          let normalizedId = evidence.id;
-          if (evIdLower.includes('download')) normalizedId = 'download';
-          else if (evIdLower.includes('register')) normalizedId = 'register';
-          else if (evIdLower.includes('rating') || evIdLower.includes('review')) normalizedId = 'rating';
+      try {
+        const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+        // Path: {campaignCode}/{submissionCode}/{evidenceId}.{ext}
+        const safeEvidenceId = evidence.id.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const storagePath = `${campaignCode}/${submissionCode}/${safeEvidenceId}.${ext}`;
+        const buffer = await file.arrayBuffer();
 
-          const fileName = `${submissionCode}/${normalizedId}.${ext}`;
-          const buffer = await file.arrayBuffer();
+        const { error: uploadErr } = await supabase.storage
+          .from("screenshots")
+          .upload(storagePath, buffer, { contentType: file.type, upsert: true });
 
-          // Upload to Supabase Storage
-          const storageUrl = `${baseUrl}/storage/v1/object/public/screenshots/${fileName}`;
-
-          try {
-            await supabase.storage
-              .from("screenshots")
-              .upload(fileName, buffer, { contentType: file.type, upsert: true });
-            console.log(`Uploaded ${fileName} (${file.size} bytes)`);
-          } catch (uploadErr: any) {
-            console.log(`Storage upload failed for ${fileName}:`, uploadErr?.message);
-          }
-
-          // Record evidence in database with normalized storage URL
-          await supabase.from("screenshot_evidence").insert({
-            submission_id: data.id,
-            evidence_type: evidence.label,
-            storage_url: storageUrl,
-            file_size: file.size,
-          });
-        } catch (e) {
-          console.error("Evidence upload error:", e);
-          // Continue processing - don't fail the whole submission
+        if (uploadErr) {
+          console.error(`[upload FAIL] ${storagePath}:`, uploadErr.message);
+          failedUploads.push({ evidenceId: evidence.id, reason: uploadErr.message });
+        } else {
+          console.log(`[upload OK] ${storagePath} (${file.size} bytes)`);
+          const publicUrl = `${baseUrl}/storage/v1/object/public/screenshots/${storagePath}`;
+          uploadedFiles.push({ evidenceId: evidence.id, url: publicUrl, storagePath });
         }
+      } catch (e: any) {
+        console.error(`[upload ERROR] ${evidence.id}:`, e?.message || e);
+        failedUploads.push({ evidenceId: evidence.id, reason: e?.message || "unknown" });
+      }
+    }
+
+    // Record metadata in screenshot_evidence (only for successful uploads)
+    for (const up of uploadedFiles) {
+      const evidence = requiredEvidence.find(e => e.id === up.evidenceId);
+      const sourceFile = evidenceFileMap[up.evidenceId];
+      try {
+        await supabase.from("screenshot_evidence").insert({
+          submission_id: data.id,
+          evidence_type: evidence?.label || up.evidenceId,
+          storage_url: up.url,
+          file_size: sourceFile?.size ?? 0,
+        });
+      } catch (e) {
+        console.error(`[DB insert FAIL] screenshot_evidence for ${up.evidenceId}:`, e);
       }
     }
 
@@ -529,9 +532,11 @@ export async function POST(request: NextRequest) {
       status,
       fraudDecision: fraudResult.is_fraud ? "fraud" : "valid",
       fraudFlags: fraudResult.flags,
+      uploaded: uploadedFiles.length,
+      uploadFailures: failedUploads,
       message: fraudResult.is_fraud
         ? `FRAUD: ${fraudResult.flags.map(f => f.reason).join("; ")}`
-        : "Submission valid",
+        : `Submission valid${failedUploads.length > 0 ? ` (${failedUploads.length} upload warning)` : ""}`,
     }, { status: 201 });
   } catch (error) {
     console.error("Server error:", error);

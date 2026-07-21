@@ -1555,7 +1555,7 @@ export default function SuperAdminPage() {
                                       alt={shot.type}
                                       className="w-full h-24 object-cover rounded-lg border border-slate-200 group-hover:border-blue-500 transition-colors"
                                       onError={(e) => {
-                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="96"><rect width="100" height="96" fill="%23e2e8f0"/><text x="50" y="48" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="10">No img</text></svg>';
+                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="96"><rect width="100" height="96" fill="%23e2e8f0"/><text x="50" y="48" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="9">Tidak tersedia</text></svg>';
                                       }}
                                     />
                                     <p className="text-xs text-slate-600 mt-1 truncate">{shot.type}</p>
@@ -1565,11 +1565,8 @@ export default function SuperAdminPage() {
                             )}
                           </div>
 
-                          <div className="flex justify-between items-center text-sm text-slate-500">
+                          <div className="flex items-center text-sm text-slate-500">
                             <span>{new Date(selectedSubmission.created_at).toLocaleString('id-ID')}</span>
-                            <Button variant="outline" onClick={() => deleteSubmission(selectedSubmission.id)} className="text-red-600 border-red-200">
-                              <Trash size={16} className="mr-1" /> Hapus
-                            </Button>
                           </div>
                         </CardContent>
                       </Card>
