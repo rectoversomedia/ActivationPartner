@@ -41,13 +41,33 @@ export async function GET(
       .eq("submission_id", id)
       .order("created_at", { ascending: true });
 
-    submission.screenshots = (evidenceRows || []).map((r: any) => ({
-      id: r.id,
-      type: r.evidence_type,
-      url: r.storage_url,
-      file_size: r.file_size,
-      created_at: r.created_at,
-    }));
+    let screenshots: any[];
+    if (evidenceRows && evidenceRows.length > 0) {
+      screenshots = evidenceRows.map((r: any) => ({
+        id: r.id,
+        type: r.evidence_type,
+        url: r.storage_url,
+        file_size: r.file_size,
+        created_at: r.created_at,
+      }));
+    } else {
+      // Legacy fallback from boolean flags
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const slots = [
+        { type: "Screenshot Download", flag: !!data.screenshot_download },
+        { type: "Screenshot Registrasi", flag: !!data.screenshot_register },
+        { type: "Screenshot Rating/Review", flag: !!data.screenshot_rating },
+      ];
+      screenshots = slots
+        .filter(e => e.flag)
+        .map(e => ({
+          id: `${data.submission_code}-${e.type.split(" ")[1].toLowerCase()}`,
+          type: e.type,
+          url: `${baseUrl}/storage/v1/object/public/screenshots/${data.submission_code}/${e.type.split(" ")[1].toLowerCase()}.jpg`,
+          pending: true,
+        }));
+    }
+    submission.screenshots = screenshots;
 
     return NextResponse.json({ data: submission });
   } catch (error) {

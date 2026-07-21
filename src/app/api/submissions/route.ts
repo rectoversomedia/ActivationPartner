@@ -297,10 +297,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Inject screenshots into each submission
-    const enrichedData = (data || []).map((s: any) => ({
-      ...s,
-      screenshots: screenshotsMap[s.id] || [],
-    }));
+    // Priority: screenshot_evidence table (new uploads) > boolean flags (legacy submissions)
+    const enrichedData = (data || []).map((s: any) => {
+      const fromTable = screenshotsMap[s.id] || [];
+      if (fromTable.length > 0) {
+        return { ...s, screenshots: fromTable };
+      }
+      // Legacy fallback: build from boolean flags + campaign required_evidence
+      // (screenshot_evidence was empty — storage upload never happened for old submissions)
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const evidenceSlots: { type: string; flag: boolean }[] = [
+        { type: "Screenshot Download", flag: !!s.screenshot_download },
+        { type: "Screenshot Registrasi", flag: !!s.screenshot_register },
+        { type: "Screenshot Rating/Review", flag: !!s.screenshot_rating },
+      ];
+      const builtScreenshots = evidenceSlots
+        .filter(e => e.flag)
+        .map(e => ({
+          id: `${s.submission_code}-${e.type.split(" ")[1].toLowerCase()}`,
+          type: e.type,
+          url: `${baseUrl}/storage/v1/object/public/screenshots/${s.submission_code}/${e.type.split(" ")[1].toLowerCase()}.jpg`,
+          pending: true, // storage never received this upload — flag was set but file missing
+        }));
+      return { ...s, screenshots: builtScreenshots };
+    });
 
     return NextResponse.json({
       data: enrichedData,

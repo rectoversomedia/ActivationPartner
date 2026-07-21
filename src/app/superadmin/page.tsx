@@ -275,7 +275,7 @@ export default function SuperAdminPage() {
   const [modalType, setModalType] = React.useState<'sales' | 'pic'>('sales');
   const [lang, setLang] = React.useState<'en' | 'id'>('id');
   const [toast, setToast] = React.useState<{message: string; type: 'success' | 'error'} | null>(null);
-  const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string}[]>([]);
+  const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string; pending?: boolean}[]>([]);
   const [loadingScreenshots, setLoadingScreenshots] = React.useState(false);
   const [imageModal, setImageModal] = React.useState<{url: string; type: string} | null>(null);
 
@@ -1543,23 +1543,36 @@ export default function SuperAdminPage() {
                             ) : (
                               <div className="grid grid-cols-3 gap-2">
                                 {submissionScreenshots.map((shot) => (
-                                  <button
-                                    key={shot.id}
-                                    type="button"
-                                    onClick={() => setImageModal({ url: shot.url, type: shot.type })}
-                                    className="relative group"
-                                    title={shot.type}
-                                  >
-                                    <img
-                                      src={shot.url}
-                                      alt={shot.type}
-                                      className="w-full h-24 object-cover rounded-lg border border-slate-200 group-hover:border-blue-500 transition-colors"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="96"><rect width="100" height="96" fill="%23e2e8f0"/><text x="50" y="48" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="9">Tidak tersedia</text></svg>';
-                                      }}
-                                    />
-                                    <p className="text-xs text-slate-600 mt-1 truncate">{shot.type}</p>
-                                  </button>
+                                  <div key={shot.id} className="relative">
+                                    {shot.pending ? (
+                                      // Legacy submission — storage upload never happened, show placeholder
+                                      <div className="w-full h-24 rounded-lg border border-amber-200 bg-amber-50 flex flex-col items-center justify-center gap-1">
+                                        <ImageIcon size={20} className="text-amber-400" />
+                                        <p className="text-[9px] text-amber-500 font-medium text-center leading-tight px-1">{shot.type}</p>
+                                        <p className="text-[8px] text-amber-400">Pending</p>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setImageModal({ url: shot.url, type: shot.type })}
+                                        className="relative group w-full"
+                                        title={shot.type}
+                                      >
+                                        <img
+                                          src={shot.url}
+                                          alt={shot.type}
+                                          className="w-full h-24 object-cover rounded-lg border border-slate-200 group-hover:border-blue-500 transition-colors"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="96"><rect width="100" height="96" fill="%23e2e8f0"/><text x="50" y="48" text-anchor="middle" dy=".3em" fill="%2364748b" font-size="9">Tidak tersedia</text></svg>';
+                                          }}
+                                        />
+                                        <p className="text-xs text-slate-600 mt-1 truncate">{shot.type}</p>
+                                      </button>
+                                    )}
+                                    {!shot.pending && (
+                                      <p className="text-xs text-slate-600 mt-1 truncate">{shot.type}</p>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             )}
