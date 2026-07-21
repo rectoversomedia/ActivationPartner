@@ -273,8 +273,37 @@ export async function GET(request: NextRequest) {
 
     const { data, count } = await query.range((page - 1) * limit, page * limit);
 
+    // Fetch screenshots_evidence for all returned submissions in one query
+    const submissionIds = (data || []).map((s: any) => s.id);
+    let screenshotsMap: Record<string, any[]> = {};
+    if (submissionIds.length > 0) {
+      const { data: evidenceRows } = await supabase
+        .from("screenshot_evidence")
+        .select("id, submission_id, evidence_type, storage_url, file_size, created_at")
+        .in("submission_id", submissionIds)
+        .order("created_at", { ascending: true });
+      if (evidenceRows) {
+        for (const row of evidenceRows) {
+          if (!screenshotsMap[row.submission_id]) screenshotsMap[row.submission_id] = [];
+          screenshotsMap[row.submission_id].push({
+            id: row.id,
+            type: row.evidence_type,
+            url: row.storage_url,
+            file_size: row.file_size,
+            created_at: row.created_at,
+          });
+        }
+      }
+    }
+
+    // Inject screenshots into each submission
+    const enrichedData = (data || []).map((s: any) => ({
+      ...s,
+      screenshots: screenshotsMap[s.id] || [],
+    }));
+
     return NextResponse.json({
-      data: data || [],
+      data: enrichedData,
       total: count || 0,
       page,
       limit,

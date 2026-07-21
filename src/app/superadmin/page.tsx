@@ -1480,7 +1480,7 @@ export default function SuperAdminPage() {
                                 </td>
                                 <td className="px-3 py-3">
                                   <div className="flex items-center justify-center gap-1">
-                                    <button onClick={() => { setSelectedSubmission(sub); loadScreenshots(sub.id); }} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Detail & Screenshots"><Eye size={16} /></button>
+                                    <button onClick={() => { setSelectedSubmission(sub); setSubmissionScreenshots(sub.screenshots || []); }} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Detail & Screenshots"><Eye size={16} /></button>
                                     <button onClick={() => deleteSubmission(sub.id)} className="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Hapus"><Trash size={16} /></button>
                                   </div>
                                 </td>

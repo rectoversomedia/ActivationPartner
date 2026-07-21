@@ -34,6 +34,21 @@ export async function GET(
       behavior_data: typeof data.behavior_data === 'string' ? JSON.parse(data.behavior_data) : data.behavior_data,
     };
 
+    // Fetch screenshots from screenshot_evidence table
+    const { data: evidenceRows } = await supabase
+      .from("screenshot_evidence")
+      .select("id, evidence_type, storage_url, file_size, created_at")
+      .eq("submission_id", id)
+      .order("created_at", { ascending: true });
+
+    submission.screenshots = (evidenceRows || []).map((r: any) => ({
+      id: r.id,
+      type: r.evidence_type,
+      url: r.storage_url,
+      file_size: r.file_size,
+      created_at: r.created_at,
+    }));
+
     return NextResponse.json({ data: submission });
   } catch (error) {
     console.error('Server error:', error);
