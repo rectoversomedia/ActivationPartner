@@ -146,7 +146,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete submission (uses admin client to bypass RLS)
+// DELETE - Delete submission (admin client bypasses RLS)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -158,21 +158,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // Use admin client for all operations — bypasses RLS completely
+    // Use admin client to bypass RLS — INSERT/UPDATE/DELETE always need service role
     const supabase = supabaseAdmin;
 
-    // Check if submission exists
-    const { data: existing, error: selectErr } = await supabase
-      .from('submissions')
-      .select('id, submission_code')
-      .eq('id', id)
-      .single();
-
-    if (selectErr || !existing) {
-      return NextResponse.json({ success: false, error: 'Submission not found' }, { status: 404 });
-    }
-
-    // Delete submission (admin client bypasses RLS)
+    // Delete submission directly — skip SELECT check (avoids anon-key RLS issues)
     const { error: deleteErr, count } = await supabase
       .from('submissions')
       .delete({ count: 'exact' })
@@ -183,20 +172,20 @@ export async function DELETE(
       return NextResponse.json({ error: deleteErr.message }, { status: 500 });
     }
 
-    console.log(`Deleted ${existing.submission_code} (${id}), rows removed: ${count}`);
+    if (!count || count === 0) {
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+    }
 
-    // Clean up screenshot_evidence (best-effort)
+    console.log(`Deleted submission ${id}, rows removed: ${count}`);
+
+    // Clean up screenshot_evidence (best-effort, non-critical)
     try {
       await supabase.from('screenshot_evidence').delete().eq('submission_id', id);
     } catch (e) {
-      // Non-critical, ignore
+      // ignore
     }
 
-    return NextResponse.json({
-      success: true,
-      deleted: existing.submission_code,
-      rowsRemoved: count,
-    });
+    return NextResponse.json({ success: true, rowsRemoved: count });
   } catch (error) {
     console.error('Server error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
