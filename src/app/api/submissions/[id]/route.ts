@@ -158,56 +158,44 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // Use admin client to bypass RLS
+    // Use admin client for all operations — bypasses RLS completely
     const supabase = supabaseAdmin;
 
-    // First check if the submission exists
-    const { data: existing } = await supabase
+    // Check if submission exists
+    const { data: existing, error: selectErr } = await supabase
       .from('submissions')
       .select('id, submission_code')
       .eq('id', id)
       .single();
 
-    if (!existing) {
-      return NextResponse.json({ success: true, message: 'Already deleted or not found' });
+    if (selectErr || !existing) {
+      return NextResponse.json({ success: false, error: 'Submission not found' }, { status: 404 });
     }
 
-    // Delete related evidence first (non-blocking)
-    try {
-      await supabase.from('screenshot_evidence').delete().eq('submission_id', id);
-    } catch (e) {
-      console.log('No screenshot_evidence to delete');
-    }
-
-    // Delete the submission
-    const { error, count } = await supabase
+    // Delete submission (admin client bypasses RLS)
+    const { error: deleteErr, count } = await supabase
       .from('submissions')
       .delete({ count: 'exact' })
       .eq('id', id);
 
-    if (error) {
-      console.error('Supabase delete error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (deleteErr) {
+      console.error('Supabase delete error:', deleteErr);
+      return NextResponse.json({ error: deleteErr.message }, { status: 500 });
     }
 
-    console.log(`Deleted submission ${existing.submission_code} (${id}), rows: ${count}`);
+    console.log(`Deleted ${existing.submission_code} (${id}), rows removed: ${count}`);
 
-    // Verify deletion
-    const { data: verifyDeleted } = await supabase
-      .from('submissions')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (verifyDeleted) {
-      console.error(`DELETE FAILED: ${id} still exists`);
-      return NextResponse.json({ error: 'Delete failed - check RLS/service role' }, { status: 500 });
+    // Clean up screenshot_evidence (best-effort)
+    try {
+      await supabase.from('screenshot_evidence').delete().eq('submission_id', id);
+    } catch (e) {
+      // Non-critical, ignore
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Submission deleted successfully',
-      deleted: existing.submission_code
+      deleted: existing.submission_code,
+      rowsRemoved: count,
     });
   } catch (error) {
     console.error('Server error:', error);
