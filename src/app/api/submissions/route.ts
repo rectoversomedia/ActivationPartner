@@ -12,6 +12,8 @@ interface FraudFlag {
   category: string;
 }
 
+interface EvidenceItem { id: string; label: string; required: boolean; }
+
 async function detectFraud(
   supabase: any,
   submission: {
@@ -32,19 +34,19 @@ async function detectFraud(
     time_on_page_ms?: number;
     typing_speeds?: number[];
   },
-  fraudRules: any
+  fraudRules: any,
+  requiredEvidence: EvidenceItem[],
+  evidenceFileMap: Record<string, File | null>
 ): Promise<{ flags: FraudFlag[]; is_fraud: boolean }> {
   const flags: FraudFlag[] = [];
 
-  // 1. MISSING EVIDENCE (only check if campaign requires it)
-  if (fraudRules.require_screenshot_download && submission.screenshot_download === false) {
-    flags.push({ flag: "MISSING_DOWNLOAD", reason: "Screenshot Download belum diupload", category: "evidence" });
-  }
-  if (fraudRules.require_screenshot_register && submission.screenshot_register === false) {
-    flags.push({ flag: "MISSING_REGISTER", reason: "Screenshot Registrasi belum diupload", category: "evidence" });
-  }
-  if (fraudRules.require_screenshot_rating && submission.screenshot_rating === false) {
-    flags.push({ flag: "MISSING_RATING", reason: "Screenshot Rating & Review belum diupload", category: "evidence" });
+  // 1. MISSING EVIDENCE — dynamic based on campaign required_evidence
+  for (const ev of requiredEvidence) {
+    if (!ev.required) continue;
+    const uploaded = evidenceFileMap[ev.id] !== null && evidenceFileMap[ev.id] !== undefined;
+    if (!uploaded) {
+      flags.push({ flag: `MISSING_${ev.id.toUpperCase()}`, reason: `${ev.label} belum diupload`, category: "evidence" });
+    }
   }
 
   // 2. DUPLICATE SCREENSHOTS
@@ -296,6 +298,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fetch campaigns to get required_evidence for dynamic screenshot slots
+    const campaignIds = [...new Set((data || []).map((s: any) => s.campaign_id).filter(Boolean))];
+    let campaignMap: Record<string, any[]> = {};
+    if (campaignIds.length > 0) {
+      const { data: campaignRows } = await supabase
+        .from("campaigns")
+        .select("id, required_evidence")
+        .in("id", campaignIds);
+      if (campaignRows) {
+        for (const cr of campaignRows) {
+          const ev = typeof cr.required_evidence === "string"
+            ? JSON.parse(cr.required_evidence)
+            : (cr.required_evidence || []);
+          campaignMap[cr.id] = ev;
+        }
+      }
+    }
+
     // Inject screenshots into each submission
     // Priority: screenshot_evidence table (new uploads) > boolean flags (legacy submissions)
     const enrichedData = (data || []).map((s: any) => {
@@ -303,22 +323,20 @@ export async function GET(request: NextRequest) {
       if (fromTable.length > 0) {
         return { ...s, screenshots: fromTable };
       }
-      // Legacy fallback: build from boolean flags + campaign required_evidence
-      // (screenshot_evidence was empty — storage upload never happened for old submissions)
+      // Legacy fallback: build from campaign required_evidence
       const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const evidenceSlots: { type: string; flag: boolean }[] = [
-        { type: "Screenshot Download", flag: !!s.screenshot_download },
-        { type: "Screenshot Registrasi", flag: !!s.screenshot_register },
-        { type: "Screenshot Rating/Review", flag: !!s.screenshot_rating },
-      ];
-      const builtScreenshots = evidenceSlots
-        .filter(e => e.flag)
-        .map(e => ({
-          id: `${s.submission_code}-${e.type.split(" ")[1].toLowerCase()}`,
-          type: e.type,
-          url: `${baseUrl}/storage/v1/object/public/screenshots/${s.submission_code}/${e.type.split(" ")[1].toLowerCase()}.jpg`,
-          pending: true, // storage never received this upload — flag was set but file missing
-        }));
+      const campaignEv = campaignMap[s.campaign_id] || [];
+      const builtScreenshots = campaignEv
+        .filter((ev: any) => ev.required)
+        .map((ev: any) => {
+          const safeId = ev.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+          return {
+            id: `${s.submission_code}-${safeId}`,
+            type: ev.label,
+            url: `${baseUrl}/storage/v1/object/public/screenshots/${s.submission_code}/${safeId}.jpg`,
+            pending: true,
+          };
+        });
       return { ...s, screenshots: builtScreenshots };
     });
 
@@ -460,7 +478,7 @@ export async function POST(request: NextRequest) {
     const screenshotRegister = registerEvidence ? !!evidenceFileMap[registerEvidence.id] : false;
     const screenshotRating = ratingEvidence ? !!evidenceFileMap[ratingEvidence.id] : false;
 
-    // Run fraud detection
+    // Run fraud detection with dynamic evidence
     const fraudResult = await detectFraud(supabase, {
       customer_phone: phone,
       customer_name,
@@ -478,7 +496,7 @@ export async function POST(request: NextRequest) {
       evidence_types,
       time_on_page_ms,
       typing_speeds,
-    }, fraudRules);
+    }, fraudRules, requiredEvidence, evidenceFileMap);
 
     const status = fraudResult.is_fraud ? "fraud" : "valid";
     const fraudFlagsJson = JSON.stringify(fraudResult.flags);

@@ -86,6 +86,9 @@ interface FraudRuleConfig {
   // Velocity checks
   check_submission_velocity: boolean;
   min_seconds_between_submissions: number;
+
+  // Allow dynamic evidence rule keys (e.g. require_screenshot_download_, require_register)
+  [key: string]: any;
 }
 
 interface SalesPerson {
@@ -645,14 +648,13 @@ export default function SuperAdminPage() {
     setEditingCampaign({ ...editingCampaign, required_evidence: newEvidence });
   };
 
-  // Count fraud rules enabled
+  // Count fraud rules enabled (dynamic from required_evidence)
   const countFraudRulesEnabled = () => {
     if (!editingCampaign) return { enabled: 0, total: 0 };
     const rules = editingCampaign.fraud_rules;
+    const evChecks = editingCampaign.required_evidence.map(ev => rules[`require_${ev.id}`] !== false);
     const checks = [
-      rules.require_screenshot_download,
-      rules.require_screenshot_register,
-      rules.require_screenshot_rating,
+      ...evChecks,
       rules.require_gps,
       rules.check_duplicate_phone,
       rules.check_duplicate_name,
@@ -953,35 +955,20 @@ export default function SuperAdminPage() {
           {/* Fraud Detection Rules */}
           <SectionCard title="Fraud Detection Rules" icon={Shield} color="from-rose-500 to-rose-600">
             <div className="space-y-2">
-              {/* Evidence Requirements */}
+              {/* Evidence Requirements — dynamic from required_evidence */}
               <div className="text-xs font-bold text-slate-500 uppercase px-2 pt-2">Evidence Requirements</div>
-              <Toggle
-                checked={editingCampaign.fraud_rules.require_screenshot_download}
-                onChange={(v) => setEditingCampaign({
-                  ...editingCampaign,
-                  fraud_rules: { ...editingCampaign.fraud_rules, require_screenshot_download: v }
-                })}
-                label="Screenshot Download Required"
-                description="Partner must upload download proof"
-              />
-              <Toggle
-                checked={editingCampaign.fraud_rules.require_screenshot_register}
-                onChange={(v) => setEditingCampaign({
-                  ...editingCampaign,
-                  fraud_rules: { ...editingCampaign.fraud_rules, require_screenshot_register: v }
-                })}
-                label="Screenshot Register Required"
-                description="Partner must upload registration proof"
-              />
-              <Toggle
-                checked={editingCampaign.fraud_rules.require_screenshot_rating}
-                onChange={(v) => setEditingCampaign({
-                  ...editingCampaign,
-                  fraud_rules: { ...editingCampaign.fraud_rules, require_screenshot_rating: v }
-                })}
-                label="Screenshot Rating Required"
-                description="Partner must upload rating/review proof"
-              />
+              {editingCampaign.required_evidence.map((ev, idx) => (
+                <Toggle
+                  key={ev.id}
+                  checked={editingCampaign.fraud_rules[`require_${ev.id}`] !== false}
+                  onChange={(v) => setEditingCampaign({
+                    ...editingCampaign,
+                    fraud_rules: { ...editingCampaign.fraud_rules, [`require_${ev.id}`]: v }
+                  })}
+                  label={`${ev.label} Required`}
+                  description={`Partner must upload ${ev.label} proof`}
+                />
+              ))}
               <Toggle
                 checked={editingCampaign.fraud_rules.require_gps}
                 onChange={(v) => setEditingCampaign({
@@ -1307,14 +1294,22 @@ export default function SuperAdminPage() {
                 };
               });
 
-              // Stats per sales
+              // Stats per sales (with fee)
+              const feeMap: Record<string, number> = {};
+              campaigns.forEach(c => { feeMap[c.id] = c.fee_per_activation; });
               const salesStats = salesList.map(s => {
                 const sSubs = submissions.filter(su => su.sales_name === s.name);
+                const valid = sSubs.filter(su => su.status === 'valid').length;
+                const totalFee = sSubs
+                  .filter(su => su.status === 'valid')
+                  .reduce((sum, su) => sum + (feeMap[su.campaign_id] || 0), 0);
                 return {
                   ...s,
                   total: sSubs.length,
-                  valid: sSubs.filter(su => su.status === 'valid').length,
+                  valid,
                   fraud: sSubs.filter(su => su.status === 'fraud').length,
+                  totalFee,
+                  feePerActivation: Object.values(feeMap)[0] || 0,
                 };
               });
 
@@ -1404,6 +1399,8 @@ export default function SuperAdminPage() {
                               <th className="px-4 py-2 text-center font-semibold text-slate-600">Valid</th>
                               <th className="px-4 py-2 text-center font-semibold text-slate-600">Fraud</th>
                               <th className="px-4 py-2 text-center font-semibold text-slate-600">Rate</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Fee</th>
+                              <th className="px-4 py-2 text-center font-semibold text-slate-600">Total Fee</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -1422,8 +1419,19 @@ export default function SuperAdminPage() {
                                     {s.total > 0 ? Math.round((s.valid / s.total) * 100) : 0}%
                                   </span>
                                 </td>
+                                <td className="px-4 py-3 text-center text-slate-600 text-sm">Rp{(s.feePerActivation || 0).toLocaleString('id-ID')}</td>
+                                <td className="px-4 py-3 text-center font-bold text-blue-700">Rp{(s.totalFee || 0).toLocaleString('id-ID')}</td>
                               </tr>
                             ))}
+                            <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                              <td className="px-4 py-3">TOTAL</td>
+                              <td className="px-4 py-3 text-center">{salesStats.reduce((sum, s) => sum + s.total, 0)}</td>
+                              <td className="px-4 py-3 text-center text-emerald-600">{salesStats.reduce((sum, s) => sum + s.valid, 0)}</td>
+                              <td className="px-4 py-3 text-center text-rose-600">{salesStats.reduce((sum, s) => sum + s.fraud, 0)}</td>
+                              <td className="px-4 py-3 text-center">{submissions.length > 0 ? Math.round((salesStats.reduce((sum, s) => sum + s.valid, 0) / submissions.length) * 100) : 0}%</td>
+                              <td className="px-4 py-3 text-center text-slate-500 text-xs">per valid</td>
+                              <td className="px-4 py-3 text-center text-blue-700">Rp{salesStats.reduce((sum, s) => sum + (s.totalFee || 0), 0).toLocaleString('id-ID')}</td>
+                            </tr>
                           </tbody>
                         </table>
                       </div>
