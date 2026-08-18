@@ -1441,7 +1441,40 @@ export default function SuperAdminPage() {
                   {/* All Submissions Table */}
                   <Card className="bg-white">
                     <CardContent className="p-4">
-                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Shield size={18} className="text-rose-500" /> All Submissions</h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-slate-900 flex items-center gap-2"><Shield size={18} className="text-rose-500" /> All Submissions</h3>
+                        <button
+                          onClick={() => {
+                            const headers = ["Kode","Customer","Email","HP","Sales","Campaign","Status","Fee","Created At"];
+                            const rows = filteredSubs.map(s => {
+                              const fee = campaigns.find(c => c.id === s.campaign_id)?.fee_per_activation || 0;
+                              const totalFee = s.status === 'valid' ? fee : 0;
+                              return [
+                                s.submission_code || '',
+                                s.customer_name || '',
+                                s.customer_email || '',
+                                s.customer_phone || '',
+                                s.sales_name || '',
+                                s.campaign_name || '',
+                                s.status || '',
+                                totalFee,
+                                (s.created_at || '').split('T')[0],
+                              ];
+                            });
+                            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `submissions-${new Date().toISOString().split('T')[0]}.csv`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <Download size={14} /> Export CSV
+                        </button>
+                      </div>
                       {/* Filters */}
                       <div className="flex flex-wrap gap-3 mb-4">
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
@@ -1467,6 +1500,7 @@ export default function SuperAdminPage() {
                               <th className="px-3 py-2 text-left font-semibold text-slate-600">Customer</th>
                               <th className="px-3 py-2 text-left font-semibold text-slate-600">Sales</th>
                               <th className="px-3 py-2 text-left font-semibold text-slate-600">Status</th>
+                              <th className="px-3 py-2 text-center font-semibold text-slate-600">Fee</th>
                               <th className="px-3 py-2 text-center font-semibold text-slate-600">Aksi</th>
                             </tr>
                           </thead>
@@ -1485,6 +1519,9 @@ export default function SuperAdminPage() {
                                   {sub.status === 'valid' && <Badge className="bg-emerald-100 text-emerald-700">Valid</Badge>}
                                   {sub.status === 'pending' && <Badge className="bg-amber-100 text-amber-700">Pending</Badge>}
                                   {sub.status === 'fraud' && <Badge className="bg-rose-100 text-rose-700">Fraud</Badge>}
+                                </td>
+                                <td className="px-3 py-3 text-center text-sm text-slate-600">
+                                  {(() => { const fee = campaigns.find(c => c.id === sub.campaign_id)?.fee_per_activation || 0; return sub.status === 'valid' ? `Rp${fee.toLocaleString('id-ID')}` : '-'; })()}
                                 </td>
                                 <td className="px-3 py-3">
                                   <div className="flex items-center justify-center gap-1">
