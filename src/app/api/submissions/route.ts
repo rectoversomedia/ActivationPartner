@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // =====================================================
 // SIMPLE FRAUD DETECTION
@@ -558,7 +559,7 @@ export async function POST(request: NextRequest) {
         const storagePath = `${campaignCode}/${submissionCode}/${safeEvidenceId}.${ext}`;
         const buffer = await file.arrayBuffer();
 
-        const { error: uploadErr } = await supabase.storage
+        const { error: uploadErr } = await supabaseAdmin.storage
           .from("screenshots")
           .upload(storagePath, buffer, { contentType: file.type, upsert: true });
 
@@ -581,7 +582,7 @@ export async function POST(request: NextRequest) {
       const evidence = requiredEvidence.find(e => e.id === up.evidenceId);
       const sourceFile = evidenceFileMap[up.evidenceId];
       try {
-        await supabase.from("screenshot_evidence").insert({
+        await supabaseAdmin.from("screenshot_evidence").insert({
           submission_id: data.id,
           evidence_type: evidence?.label || up.evidenceId,
           storage_url: up.url,
