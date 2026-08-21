@@ -297,7 +297,7 @@ export default function SuperAdminPage() {
       const [campRes, masterRes, subRes] = await Promise.all([
         fetch('/api/campaigns', { cache: 'no-store' }),
         fetch('/api/master-data?type=all', { cache: 'no-store' }),
-        fetch(`/api/submissions?limit=9999&t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/submissions?limit=0&t=${Date.now()}`, { cache: 'no-store' }),
       ]);
       const campData = await campRes.json();
       const masterData = await masterRes.json();

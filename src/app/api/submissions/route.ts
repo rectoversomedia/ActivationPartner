@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limitParam = searchParams.get("limit"); const limit = limitParam === "0" ? 100000 : (parseInt(limitParam || "20"));
     const status = searchParams.get("status");
     const search = searchParams.get("search");
 
