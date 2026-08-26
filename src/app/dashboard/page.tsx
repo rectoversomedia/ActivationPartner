@@ -179,7 +179,7 @@ export default function DashboardPage() {
   const fetchData = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/submissions?limit=1000");
+      const response = await fetch(`/api/submissions?limit=0&t=${Date.now()}`);
       const result = await response.json();
 
       if (result.data) {
