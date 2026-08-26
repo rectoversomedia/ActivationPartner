@@ -274,7 +274,17 @@ export async function GET(request: NextRequest) {
       query = query.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
     }
 
-    const { data, count } = await query.range((page - 1) * limit, page * limit);
+    // When limit=0, fetch all records without pagination (bypasses PostgREST max-rows cap)
+    let data, count;
+    if (limitParam === "0") {
+      const result = await query.limit(100000);
+      data = result.data;
+      count = result.count;
+    } else {
+      const result = await query.range((page - 1) * limit, page * limit);
+      data = result.data;
+      count = result.count;
+    }
 
     // Fetch screenshots_evidence for all returned submissions in one query
     const submissionIds = (data || []).map((s: any) => s.id);
