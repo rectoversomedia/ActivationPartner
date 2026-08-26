@@ -274,12 +274,19 @@ export async function GET(request: NextRequest) {
       query = query.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
     }
 
-    // When limit=0, fetch all records without pagination (bypasses PostgREST max-rows cap)
+    // When limit=0, fetch all records without pagination
+    // Note: separate data and count queries to avoid Edge Runtime + count:"exact" + large limit issue
     let data, count;
     if (limitParam === "0") {
-      const result = await query.limit(100000);
-      data = result.data;
-      count = result.count;
+      const dataQuery = supabase
+        .from("submissions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (status && status !== "all") dataQuery.eq("status", status);
+      if (search) dataQuery.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
+      const { data: unlimitedData, count: unlimitedCount } = await dataQuery.limit(100000);
+      data = unlimitedData;
+      count = unlimitedCount;
     } else {
       const result = await query.range((page - 1) * limit, page * limit);
       data = result.data;
