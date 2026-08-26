@@ -275,18 +275,40 @@ export async function GET(request: NextRequest) {
     }
 
     // When limit=0, fetch all records without pagination
-    // Note: separate data and count queries to avoid Edge Runtime + count:"exact" + large limit issue
+    // Workaround for PostgREST max-rows=1000 cap: fetch in chunks of 1000
+    // until we have all records or reach 50k max
     let data, count;
     if (limitParam === "0") {
-      const dataQuery = supabase
+      const countQuery = supabase
         .from("submissions")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (status && status !== "all") dataQuery.eq("status", status);
-      if (search) dataQuery.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
-      const { data: unlimitedData, count: unlimitedCount } = await dataQuery.limit(100000);
-      data = unlimitedData;
-      count = unlimitedCount;
+        .select("id", { count: "exact" });
+      if (status && status !== "all") countQuery.eq("status", status);
+      if (search) countQuery.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
+      const { count: totalCount } = await countQuery;
+
+      const CHUNK = 1000;
+      const MAX_TOTAL = 50000;
+      const allData: any[] = [];
+      let offset = 0;
+
+      while (allData.length < MAX_TOTAL) {
+        const chunkQuery = supabase
+          .from("submissions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + CHUNK - 1);
+        if (status && status !== "all") chunkQuery.eq("status", status);
+        if (search) chunkQuery.or(`submission_code.ilike.%${search}%,customer_name.ilike.%${search}%`);
+
+        const { data: chunk } = await chunkQuery;
+        if (!chunk || chunk.length === 0) break;
+        allData.push(...chunk);
+        if (chunk.length < CHUNK) break;
+        offset += CHUNK;
+      }
+
+      data = allData;
+      count = totalCount;
     } else {
       const result = await query.range((page - 1) * limit, page * limit);
       data = result.data;
