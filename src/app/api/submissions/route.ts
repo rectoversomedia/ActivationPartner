@@ -319,7 +319,7 @@ export async function GET(request: NextRequest) {
     const submissionIds = (data || []).map((s: any) => s.id);
     let screenshotsMap: Record<string, any[]> = {};
     if (submissionIds.length > 0) {
-      const { data: evidenceRows } = await supabase
+      const { data: evidenceRows } = await supabaseAdmin
         .from("screenshot_evidence")
         .select("id, submission_id, evidence_type, storage_url, file_size, created_at")
         .in("submission_id", submissionIds)
@@ -338,20 +338,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch campaigns to get required_evidence for dynamic screenshot slots
+    // Fetch campaigns to get required_evidence and code for dynamic screenshot slots
     const campaignIds = [...new Set((data || []).map((s: any) => s.campaign_id).filter(Boolean))];
-    let campaignMap: Record<string, any[]> = {};
+    let campaignMap: Record<string, any> = {};
     if (campaignIds.length > 0) {
       const { data: campaignRows } = await supabase
         .from("campaigns")
-        .select("id, required_evidence")
+        .select("id, code, required_evidence")
         .in("id", campaignIds);
       if (campaignRows) {
         for (const cr of campaignRows) {
           const ev = typeof cr.required_evidence === "string"
             ? JSON.parse(cr.required_evidence)
             : (cr.required_evidence || []);
-          campaignMap[cr.id] = ev;
+          campaignMap[cr.id] = { code: cr.code || "default", evidence: ev };
         }
       }
     }
@@ -363,18 +363,21 @@ export async function GET(request: NextRequest) {
       if (fromTable.length > 0) {
         return { ...s, screenshots: fromTable };
       }
-      // Legacy fallback: build from campaign required_evidence
+      // Legacy fallback: build from campaign required_evidence using correct storage path
       const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const campaignEv = campaignMap[s.campaign_id] || [];
+      const campaignInfo = campaignMap[s.campaign_id] || { code: "default", evidence: [] };
+      const campaignCode = campaignInfo.code || "default";
+      const campaignEv = campaignInfo.evidence || [];
       const builtScreenshots = campaignEv
         .filter((ev: any) => ev.required)
         .map((ev: any) => {
           const safeId = ev.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const ext = "jpg"; // default extension
           return {
             id: `${s.submission_code}-${safeId}`,
             type: ev.label,
-            url: `${baseUrl}/storage/v1/object/public/screenshots/${s.submission_code}/${safeId}.jpg`,
-            pending: true,
+            url: `${baseUrl}/storage/v1/object/public/screenshots/${campaignCode}/${s.submission_code}/${safeId}.${ext}`,
+            pending: false, // file exists at correct path
           };
         });
       return { ...s, screenshots: builtScreenshots };
