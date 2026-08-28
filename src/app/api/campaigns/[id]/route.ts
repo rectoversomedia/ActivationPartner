@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 // GET - Single campaign
 export async function GET(
@@ -70,12 +71,12 @@ export async function PUT(
         const buffer = await logoFile.arrayBuffer();
 
         try {
-          const { error: uploadError, data: uploadData } = await supabase.storage
+          const { error: uploadError, data: uploadData } = await supabaseAdmin.storage
             .from('brand-logos')
             .upload(fileName, buffer, { contentType: logoFile.type });
 
           if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage
+            const { data: urlData } = supabaseAdmin.storage
               .from('brand-logos')
               .getPublicUrl(fileName);
             body.brand_logo_url = urlData.publicUrl;

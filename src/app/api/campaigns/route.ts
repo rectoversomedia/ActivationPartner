@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 // GET - List all campaigns
 export async function GET(request: NextRequest) {
@@ -64,12 +65,12 @@ export async function POST(request: NextRequest) {
         const buffer = await logoFile.arrayBuffer();
 
         try {
-          const { error: uploadError, data: uploadData } = await supabase.storage
+          const { error: uploadError, data: uploadData } = await supabaseAdmin.storage
             .from('brand-logos')
             .upload(fileName, buffer, { contentType: logoFile.type });
 
           if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage
+            const { data: urlData } = supabaseAdmin.storage
               .from('brand-logos')
               .getPublicUrl(fileName);
             body.brand_logo_url = urlData.publicUrl;
@@ -94,12 +95,12 @@ export async function POST(request: NextRequest) {
           const fileName = `examples/${Date.now()}_${idx}_${exampleFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
 
           try {
-            const { error: uploadError, data: uploadData } = await supabase.storage
+            const { error: uploadError, data: uploadData } = await supabaseAdmin.storage
               .from('brand-logos')
               .upload(fileName, buffer, { contentType: exampleFile.type });
 
             if (!uploadError && uploadData) {
-              const { data: urlData } = supabase.storage
+              const { data: urlData } = supabaseAdmin.storage
                 .from('brand-logos')
                 .getPublicUrl(fileName);
               evidenceList[idx] = { ...evidenceList[idx], example_image_url: urlData.publicUrl };
