@@ -27,7 +27,7 @@ interface FormField {
   placeholder?: string;
   required: boolean;
   options?: { label: string; value: string }[];
-  source?: 'sales' | 'pics' | 'campaigns' | 'custom';
+  source?: 'sales' | 'pics' | 'campaigns' | 'custom' | 'options';
 }
 
 interface FlexibleUrl {
@@ -160,6 +160,7 @@ const FIELD_TYPES = [
 
 const FORM_FIELD_SOURCES = [
   { value: 'custom', label: 'Custom Input' },
+  { value: 'options', label: 'Custom Dropdown' },
   { value: 'sales', label: 'From Sales List' },
   { value: 'pics', label: 'From PIC List' },
   { value: 'campaigns', label: 'From Campaigns' },
@@ -861,6 +862,60 @@ export default function SuperAdminPage() {
                       <span className="text-xs text-slate-600">Required</span>
                     </div>
                   </div>
+
+                  {/* Custom Dropdown Options Editor */}
+                  {field.type === 'select' && field.source === 'options' && (
+                    <div className="mt-2 p-2 bg-white border border-slate-200 rounded-lg">
+                      <p className="text-xs font-medium text-slate-500 mb-2">Dropdown Pilihan:</p>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(field.options || []).map((opt, oi) => (
+                          <span key={oi} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-xs">
+                            {opt.label}
+                            <button
+                              onClick={() => {
+                                const newOpts = (field.options || []).filter((_, i) => i !== oi);
+                                updateFormField(index, { options: newOpts });
+                              }}
+                              className="text-slate-400 hover:text-red-500 ml-1"
+                            >×</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ketik pilihan, misal: Android"
+                          className="flex-1 px-2 py-1 border border-slate-200 rounded text-xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const input = e.currentTarget;
+                              const val = input.value.trim();
+                              if (val) {
+                                const newOpt = { label: val, value: val.toLowerCase().replace(/\s+/g, '_') };
+                                updateFormField(index, { options: [...(field.options || []), newOpt] });
+                                input.value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                            const val = input.value.trim();
+                            if (val) {
+                              const newOpt = { label: val, value: val.toLowerCase().replace(/\s+/g, '_') };
+                              updateFormField(index, { options: [...(field.options || []), newOpt] });
+                              input.value = '';
+                            }
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                        >Add</button>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">Tekan Enter atau klik Add untuk menambah pilihan. Klik × untuk hapus.</p>
+                    </div>
+                  )}
                 </div>
               ))}
               <Button variant="outline" onClick={addFormField} className="w-full border-dashed">
