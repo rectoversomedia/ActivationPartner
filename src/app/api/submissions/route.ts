@@ -101,7 +101,7 @@ async function detectFraud(
     }
   }
 
-  // 5. DUPLICATE PHONE (Legacy - for backward compatibility)
+  // 5. DUPLICATE PHONE (same HP regardless of name — catches different names using same phone)
   // Only triggers if check_duplicate_customer is not enabled
   if (fraudRules.check_duplicate_phone && !fraudRules.check_duplicate_customer && submission.customer_phone) {
     const { data: dupPhone } = await supabase
@@ -120,7 +120,32 @@ async function detectFraud(
     }
   }
 
-  // 5B. SMART DUPLICATE CUSTOMER - Checks NAME + PHONE combo (Recommended)
+  // 5B. SAME PHONE, DIFFERENT NAME — catches same phone used by different people
+  // Runs regardless of check_duplicate_customer setting
+  if (fraudRules.check_duplicate_phone && submission.customer_phone && submission.customer_name) {
+    const { data: samePhoneSubs } = await supabase
+      .from("submissions")
+      .select("id, submission_code, customer_name")
+      .eq("customer_phone", submission.customer_phone)
+      .eq("campaign_id", submission.campaign_id);
+
+    if (samePhoneSubs && samePhoneSubs.length > 0) {
+      const currentNameLower = submission.customer_name.toLowerCase().trim();
+      const differentNameSubs = samePhoneSubs.filter((s: any) =>
+        s.customer_name && s.customer_name.toLowerCase().trim() !== currentNameLower
+      );
+      if (differentNameSubs.length > 0) {
+        const names = [...new Set([submission.customer_name, ...differentNameSubs.map((s: any) => s.customer_name)])];
+        flags.push({
+          flag: "DUPLICATE_PHONE_DIFF_NAME",
+          reason: `FRAUD: HP '${submission.customer_phone}' digunakan oleh ${names.length} orang berbeda (${names.slice(0, 3).join(', ')}${names.length > 3 ? '...' : ''})`,
+          category: "customer"
+        });
+      }
+    }
+  }
+
+  // 5C. SMART DUPLICATE CUSTOMER - Checks NAME + PHONE combo (Recommended)
   // Same customer = Same name AND same phone (not just phone alone)
   if (fraudRules.check_duplicate_customer && submission.customer_phone && submission.customer_name) {
     const { data: dupCustomer } = await supabase
