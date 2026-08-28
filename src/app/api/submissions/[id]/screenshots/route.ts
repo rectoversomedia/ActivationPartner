@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +11,7 @@ export async function GET(
     const supabase = await createClient();
 
     // Get submission with campaign code (joined) for path
-    const { data: submission } = await supabase
+    const { data: submission } = await supabaseAdmin
       .from('submissions')
       .select('submission_code, campaign_id, screenshot_download, screenshot_register, screenshot_rating, campaigns:campaign_id(code)')
       .eq('id', id)
@@ -21,7 +22,7 @@ export async function GET(
     }
 
     // Try screenshot_evidence table first (most reliable — uses real stored URLs)
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('screenshot_evidence')
       .select('id, evidence_type, storage_url, file_size, created_at')
       .eq('submission_id', id)

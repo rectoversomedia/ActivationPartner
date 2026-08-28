@@ -57,6 +57,7 @@ interface Submission {
   fraud_flags: string;
   fraud_reasons: string;
   qc_notes: string;
+  screenshots?: { id: string; url: string; type: string; file_size?: number; created_at?: string }[];
 }
 
 const FRAUD_CATEGORIES: Record<string, { icon: any; color: string; label: string }> = {
@@ -216,20 +217,24 @@ export default function DashboardPage() {
 
   // Load screenshots for selected submission
   const loadScreenshots = async (submissionId: string) => {
-    setLoadingScreenshots(true);
-    try {
-      const res = await fetch(`/api/submissions/${submissionId}/screenshots`);
-      const data = await res.json();
-      if (data.data) {
-        setSubmissionScreenshots(data.data);
-      } else {
+    // Screenshots are already embedded in submissions data from the main fetch.
+    // Find the submission in state and use its screenshots directly.
+    const found = submissions.find(s => s.id === submissionId);
+    if (found?.screenshots && found.screenshots.length > 0) {
+      setSubmissionScreenshots(found.screenshots);
+    } else {
+      // Fallback: fetch from API (for legacy or filtered-out submissions)
+      setLoadingScreenshots(true);
+      try {
+        const res = await fetch(`/api/submissions/${submissionId}/screenshots`);
+        const data = await res.json();
+        setSubmissionScreenshots(data.data || []);
+      } catch (error) {
+        console.error('Load screenshots error:', error);
         setSubmissionScreenshots([]);
+      } finally {
+        setLoadingScreenshots(false);
       }
-    } catch (error) {
-      console.error('Load screenshots error:', error);
-      setSubmissionScreenshots([]);
-    } finally {
-      setLoadingScreenshots(false);
     }
   };
 
