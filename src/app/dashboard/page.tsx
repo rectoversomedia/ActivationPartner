@@ -502,6 +502,35 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* Platform Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Platform:</span>
+            <div className="flex gap-1">
+              {([["all","Semua"],["android","Android"],["ios","iPhone"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setPlatformFilter(val)}
+                  className={cn(
+                    "px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                    platformFilter === val
+                      ? val === "android" ? "bg-green-600 text-white shadow" :
+                        val === "ios" ? "bg-slate-800 text-white shadow" :
+                        "bg-blue-600 text-white shadow"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {platformFilter !== "all" && (
+              <button
+                onClick={() => setPlatformFilter("all")}
+                className="text-xs text-slate-400 hover:text-red-500"
+              >× clear</button>
+            )}
+          </div>
+
           <div className="relative">
             <MagnifyingGlass
               size={16}
