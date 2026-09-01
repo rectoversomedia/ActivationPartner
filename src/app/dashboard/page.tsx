@@ -108,6 +108,7 @@ export default function DashboardPage() {
 
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [salesFilter, setSalesFilter] = React.useState<string>("all");
+  const [platformFilter, setPlatformFilter] = React.useState<"all" | "android" | "ios">("all");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedSubmission, setSelectedSubmission] = React.useState<Submission | null>(null);
   const [submissionScreenshots, setSubmissionScreenshots] = React.useState<{id: string; url: string; type: string}[]>([]);
@@ -121,7 +122,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [submissions, setSubmissions] = React.useState<Submission[]>([]);
   const [salesStats, setSalesStats] = React.useState<
-    { name: string; total: number; valid: number; fraud: number; rate: number }[]
+    { name: string; total: number; valid: number; fraud: number; rate: number; platform: string }[]
   >([]);
 
   // Date preset handlers
@@ -186,13 +187,16 @@ export default function DashboardPage() {
       if (result.data) {
         setSubmissions(result.data);
 
-        const salesMap = new Map<string, { total: number; valid: number; fraud: number }>();
+        const salesMap = new Map<string, { total: number; valid: number; fraud: number; android: number; ios: number }>();
         result.data.forEach((sub: Submission) => {
           const salesName = sub.sales_name || "Unknown";
-          const current = salesMap.get(salesName) || { total: 0, valid: 0, fraud: 0 };
+          const current = salesMap.get(salesName) || { total: 0, valid: 0, fraud: 0, android: 0, ios: 0 };
           current.total++;
           if (sub.status === "valid") current.valid++;
           else if (sub.status === "fraud") current.fraud++;
+          const dev = (sub.device_info || "").toLowerCase();
+          if (dev.includes("android")) current.android++;
+          else if (dev.includes("ios") || dev.includes("iphone") || dev.includes("ipad")) current.ios++;
           salesMap.set(salesName, current);
         });
 
@@ -203,6 +207,7 @@ export default function DashboardPage() {
             valid: data.valid,
             fraud: data.fraud,
             rate: data.total > 0 ? Math.round((data.valid / data.total) * 100) : 0,
+            platform: data.android >= data.ios ? "Android" : data.ios > 0 ? "iPhone" : "Unknown",
           }))
           .sort((a, b) => b.total - a.total);
 
@@ -277,19 +282,30 @@ export default function DashboardPage() {
         }
       }
 
+      // Platform filter
+      if (platformFilter !== "all") {
+        const devInfo = (sub.device_info || "").toLowerCase();
+        if (platformFilter === "android" && !devInfo.includes("android")) return false;
+        if (platformFilter === "ios" && !devInfo.includes("ios") && !devInfo.includes("iphone") && !devInfo.includes("ipad")) return false;
+      }
+
       return true;
     });
-  }, [submissions, statusFilter, salesFilter, dateFrom, dateTo, searchQuery]);
+  }, [submissions, statusFilter, salesFilter, platformFilter, dateFrom, dateTo, searchQuery]);
 
   // Memoized filtered sales stats based on filtered submissions
   const filteredSalesStats = React.useMemo(() => {
-    const salesMap = new Map<string, { total: number; valid: number; fraud: number }>();
+    const salesMap = new Map<string, { total: number; valid: number; fraud: number; platform: string }>();
     filteredSubmissions.forEach((sub) => {
       const salesName = sub.sales_name || "Unknown";
-      const current = salesMap.get(salesName) || { total: 0, valid: 0, fraud: 0 };
+      const current = salesMap.get(salesName) || { total: 0, valid: 0, fraud: 0, platform: "" };
       current.total++;
       if (sub.status === "valid") current.valid++;
       else if (sub.status === "fraud") current.fraud++;
+      // Track platform — use most common
+      const dev = (sub.device_info || "").toLowerCase();
+      const platform = dev.includes("android") ? "Android" : dev.includes("ios") || dev.includes("iphone") || dev.includes("ipad") ? "iPhone" : "Unknown";
+      if (current.platform === "") current.platform = platform;
       salesMap.set(salesName, current);
     });
 
@@ -299,6 +315,7 @@ export default function DashboardPage() {
         total: data.total,
         valid: data.valid,
         fraud: data.fraud,
+        platform: data.platform,
         rate: data.total > 0 ? Math.round((data.valid / data.total) * 100) : 0,
       }))
       .sort((a, b) => b.total - a.total);
@@ -693,6 +710,34 @@ export default function DashboardPage() {
         {/* Per Sales Table */}
         {view === "sales" && (
           <Card className="bg-white border border-slate-200/60 shadow-sm overflow-hidden">
+            {/* Platform Filter */}
+            <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-medium">Platform:</span>
+              <div className="flex gap-1">
+                {([["all","Semua"],["android","Android"],["ios","iPhone"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setPlatformFilter(val)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      platformFilter === val
+                        ? val === "android" ? "bg-green-600 text-white shadow" :
+                          val === "ios" ? "bg-slate-800 text-white shadow" :
+                          "bg-blue-600 text-white shadow"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {platformFilter !== "all" && (
+                <button
+                  onClick={() => setPlatformFilter("all")}
+                  className="text-xs text-slate-400 hover:text-red-500 ml-1"
+                >× clear</button>
+              )}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -711,6 +756,9 @@ export default function DashboardPage() {
                     </th>
                     <th className="text-center px-4 py-3.5 text-xs font-bold text-slate-600 uppercase">
                       Rate
+                    </th>
+                    <th className="text-center px-4 py-3.5 text-xs font-bold text-slate-600 uppercase">
+                      Platform
                     </th>
                     <th className="text-left px-4 py-3.5 text-xs font-bold text-slate-600 uppercase">
                       Performance
@@ -756,6 +804,19 @@ export default function DashboardPage() {
                           )}
                         >
                           {sales.rate}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold",
+                          sales.platform === "Android" ? "bg-green-100 text-green-700" :
+                          sales.platform === "iPhone" ? "bg-slate-800 text-white" :
+                          "bg-slate-100 text-slate-500"
+                        )}>
+                          {sales.platform === "Android" && "🤖"}
+                          {sales.platform === "iPhone" && "🍎"}
+                          {sales.platform === "Unknown" && "?"}
+                          {sales.platform}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
