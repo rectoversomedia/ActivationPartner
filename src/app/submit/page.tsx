@@ -481,6 +481,15 @@ export default function SubmitPage() {
       formDataToSend.append('campaign_name', selectedCampaign.name);
 
       // Add all form fields
+      // Detect device type from campaign form field (dropdown "Android atau iPhone") first
+      const deviceTypeField = selectedCampaign.form_fields.find((f: FormField) =>
+        (f.name?.toLowerCase().includes('android') && f.name?.toLowerCase().includes('iphone')) ||
+        f.label?.toLowerCase().includes('android') && f.label?.toLowerCase().includes('iphone') ||
+        f.label?.toLowerCase().includes('perangkat') ||
+        f.label?.toLowerCase().includes('device')
+      );
+      const deviceFromField = deviceTypeField ? formData[deviceTypeField.name] : null;
+
       for (const field of selectedCampaign.form_fields) {
         if (field.source === 'sales') {
           const sales = salesList.find(s => s.id === formData[field.name]);
@@ -496,7 +505,9 @@ export default function SubmitPage() {
       }
 
       // Add device fingerprint & behavioral data
-      formDataToSend.append('device_info', formData.device_info || '');
+      // Prefer dropdown value from form, fallback to browser fingerprint
+      const deviceValue = deviceFromField || formData.device_info || '';
+      formDataToSend.append('device_info', deviceValue);
       formDataToSend.append('device_fingerprint_hash', deviceFingerprintHash || '');
       formDataToSend.append('ip_address', formData.ip_address || '');
       formDataToSend.append('gps_lat', formData.gps_lat || '');
@@ -855,7 +866,17 @@ export default function SubmitPage() {
                     <DeviceMobile size={20} className="text-blue-500" />
                     <div className="flex-1">
                       <p className="text-xs text-slate-500">Device</p>
-                      <p className="text-sm font-medium text-slate-700">{formData.device_info || 'Detecting...'}</p>
+                      <p className="text-sm font-medium text-slate-700">
+                        {(() => {
+                          // Prefer form field dropdown value, fallback to fingerprint
+                          const deviceField = selectedCampaign?.form_fields?.find((f: FormField) =>
+                            (f.name?.toLowerCase().includes('android') && f.name?.toLowerCase().includes('iphone')) ||
+                            (f.label?.toLowerCase().includes('android') && f.label?.toLowerCase().includes('iphone')) ||
+                            f.label?.toLowerCase().includes('perangkat') || f.label?.toLowerCase().includes('device')
+                          );
+                          return deviceField ? (formData[deviceField.name] || 'Belum pilih') : (formData.device_info || 'Detecting...');
+                        })()}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
