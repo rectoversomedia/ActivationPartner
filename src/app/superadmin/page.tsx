@@ -9,11 +9,12 @@ import {
   MapPin, DeviceMobile, Clock, Phone, Envelope, User,
   FloppyDisk, Buildings, UserCircle, Camera,
   SignOut, UserCircleCheck, ArrowLeft, Robot, Fingerprint,
-  Info, Image as ImageIcon, CheckSquare, Square,
+  Info, Image as ImageIcon, Square,
   Download, LinkSimple, ImageSquare, Upload, Globe,
   DotsSixVertical, ArrowsOutCardinal, CaretDown, EyeSlash,
   ToggleLeft, ToggleRight, Sliders, WarningCircle, CheckFat,
-  ListPlus, PencilSimple, UserCirclePlus, ChartBar, ShieldCheck
+  ListPlus, PencilSimple, UserCirclePlus, ChartBar, ShieldCheck,
+  Database, Copy, CheckSquare, ArrowSquareIn
 } from '@phosphor-icons/react';
 import { Button, Card, CardContent, Badge, Input } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -166,7 +167,7 @@ const FORM_FIELD_SOURCES = [
   { value: 'campaigns', label: 'From Campaigns' },
 ];
 
-type TabType = 'dashboard' | 'campaigns' | 'sales' | 'pics' | 'settings';
+type TabType = 'dashboard' | 'campaigns' | 'sales' | 'pics' | 'database' | 'settings';
 
 interface CampaignFormData {
   id?: string;
@@ -1304,6 +1305,7 @@ export default function SuperAdminPage() {
             { id: 'campaigns' as TabType, label: lang === 'id' ? 'Campaign' : 'Campaigns', icon: Flag, count: campaigns.length },
             { id: 'sales' as TabType, label: lang === 'id' ? 'Sales' : 'Sales', icon: Users, count: salesList.length },
             { id: 'pics' as TabType, label: lang === 'id' ? 'PIC' : 'PICs', icon: UserCircle, count: picsList.length },
+            { id: 'database' as TabType, label: 'Database', icon: Database },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -1855,6 +1857,119 @@ export default function SuperAdminPage() {
                 )}
               </div>
             )}
+
+            {/* DATABASE */}
+            {activeTab === 'database' && (() => {
+              const [dbStatus, setDbStatus] = React.useState<any>(null);
+              const [checking, setChecking] = React.useState(false);
+              const [copied, setCopied] = React.useState(false);
+
+              const checkColumns = async () => {
+                setChecking(true);
+                try {
+                  const res = await fetch('/api/admin/schema', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'check_columns' }),
+                  });
+                  const data = await res.json();
+                  setDbStatus(data);
+                } catch {
+                  setDbStatus({ error: 'Failed to check columns' });
+                }
+                setChecking(false);
+              };
+
+              React.useEffect(() => { checkColumns(); }, []);
+
+              const copySQL = (sql: string) => {
+                navigator.clipboard.writeText(sql).catch(() => {});
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              };
+
+              return (
+                <div className="space-y-6 max-w-2xl mx-auto">
+                  <Card className="bg-white">
+                    <CardContent className="p-6">
+                      <h2 className="text-lg font-bold mb-1 flex items-center gap-2">
+                        <Database size={22} className="text-blue-600" /> Schema & Columns
+                      </h2>
+                      <p className="text-sm text-slate-500 mb-6">Kelola kolom submissions table — khusus untuk menyimpan data dynamic form field</p>
+
+                      {/* Status */}
+                      <div className="mb-6 p-4 rounded-xl border-2 flex items-start gap-3 bg-slate-50 border-slate-200">
+                        {checking ? (
+                          <div className="flex items-center gap-2 text-slate-500 text-sm">
+                            <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                            Mengecek kolom...
+                          </div>
+                        ) : dbStatus?.error && !dbStatus?.form_values_exists ? (
+                          <div className="flex items-start gap-3">
+                            <WarningCircle size={20} className="text-amber-500 mt-0.5 shrink-0" weight="fill" />
+                            <div>
+                              <p className="text-sm font-semibold text-amber-700">Kolom <span className="font-mono bg-amber-100 px-1 rounded">form_values</span> belum ada di database</p>
+                              <p className="text-xs text-slate-600 mt-1">Jalankan SQL berikut di Supabase SQL Editor untuk menambahkan kolom:</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-3">
+                            <CheckCircle size={20} className="text-emerald-500 mt-0.5 shrink-0" weight="fill" />
+                            <div>
+                              <p className="text-sm font-semibold text-emerald-700">Kolom <span className="font-mono bg-emerald-100 px-1 rounded">form_values</span> sudah ada</p>
+                              <p className="text-xs text-slate-600 mt-1">Data dynamic form field akan tersimpan otomatis untuk submission baru.</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* SQL to run */}
+                      {(!dbStatus?.form_values_exists) && (
+                        <div className="mb-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-semibold text-slate-700">SQL untuk menambahkan kolom:</label>
+                            <button
+                              onClick={() => copySQL('ALTER TABLE submissions ADD COLUMN IF NOT EXISTS form_values JSONB;')}
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              {copied ? <Check size={12} /> : <Copy size={12} />}
+                              {copied ? 'Tersalin!' : 'Salin'}
+                            </button>
+                          </div>
+                          <pre className="bg-slate-900 text-green-400 text-xs p-4 rounded-xl overflow-x-auto leading-relaxed">
+{`-- Jalankan di Supabase → SQL Editor:
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS form_values JSONB;`}
+                          </pre>
+                          <button
+                            onClick={checkColumns}
+                            className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            ← Klik di sini setelah menjalankan SQL untuk verifikasi
+                          </button>
+                        </div>
+                      )}
+
+                      {/* device_info explanation */}
+                      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+                        <h3 className="font-semibold text-slate-800 text-sm mb-1">Tentang device_info & form_values</h3>
+                        <ul className="text-xs text-slate-600 space-y-1.5">
+                          <li><span className="font-medium text-slate-700">Submission baru:</span> device_info diambil dari dropdown "Android atau iPhone" yang dipilih partner di form.</li>
+                          <li><span className="font-medium text-slate-700">Submission lama:</span> device_info berisi nilai dari browser fingerprint (Android-Other, iOS-iPhone). Nilai dropdown asli sudah tidak bisa diambil kembali.</li>
+                          <li><span className="font-medium text-slate-700">form_values:</span> menyimpan SEMUA field dinamis (dropdown dll) agar tidak hilang lagi di masa depan.</li>
+                          <li><span className="font-medium text-slate-700">Platform filter dashboard:</span> tetap berfungsi — filter akan mencocokkan "android" atau "iphone" di dalam nilai device_info.</li>
+                        </ul>
+                      </div>
+
+                      <div className="mt-4 flex gap-3">
+                        <button onClick={checkColumns} disabled={checking} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                          <Database size={16} /> Cek Ulang Kolom
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             {/* SETTINGS */}
             {activeTab === 'settings' && (

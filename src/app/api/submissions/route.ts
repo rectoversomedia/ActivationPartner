@@ -405,6 +405,20 @@ export async function POST(request: NextRequest) {
     const evidence_types_raw = formData.get("evidence_types") as string;
     const evidence_types = evidence_types_raw ? JSON.parse(evidence_types_raw) : undefined;
 
+    // Extract dynamic form field values (everything except system fields)
+    const systemFields = new Set([
+      "campaign_id", "campaign_name", "device_info", "device_fingerprint_hash",
+      "gps_lat", "gps_lng", "sales_id", "sales_name", "pic_id", "pic_name",
+      "customer_name", "customer_phone", "customer_email", "time_on_page_ms",
+      "typing_speeds", "evidence_hashes", "evidence_types",
+    ]);
+    const formValues: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      if (systemFields.has(key) || key.startsWith("evidence_")) continue;
+      if (value instanceof File) continue;
+      formValues[key] = value as string;
+    }
+
     if (!campaign_id || !customer_name || !customer_phone) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -554,6 +568,7 @@ export async function POST(request: NextRequest) {
         ip_address: ip_address || null,
         user_agent: request.headers.get("user-agent"),
         behavior_data: JSON.stringify({ time_on_page_ms, typing_speeds }),
+        form_values: Object.keys(formValues).length > 0 ? JSON.stringify(formValues) : null,
       })
       .select()
       .single();
