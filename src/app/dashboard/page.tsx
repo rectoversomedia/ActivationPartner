@@ -78,18 +78,25 @@ const parseFraudFlags = (flagsJson: string | FraudFlag[]): FraudFlag[] => {
 };
 
 const exportToCSV = (submissions: Submission[]) => {
-  const headers = ["Kode", "Sales", "PIC", "Campaign", "Customer", "Phone", "Status", "Fraud Reasons", "Created"];
-  const rows = submissions.map((sub) => [
-    sub.submission_code,
-    sub.sales_name,
-    sub.pic_name,
-    sub.campaign_name,
-    sub.customer_name,
-    sub.customer_phone,
-    sub.status,
-    parseFraudFlags(sub.fraud_flags).map((f) => `${f.flag}: ${f.reason}`).join(" | "),
-    sub.created_at,
-  ]);
+  const headers = ["Kode", "Sales", "PIC", "Campaign", "Customer", "Phone", "Status", "Fraud Reasons", "Screenshots", "Created"];
+  const rows = submissions.map((sub) => {
+    const screenshotLinks = (sub.screenshots || [])
+      .filter((s) => s.url && !s.url.includes("pending"))
+      .map((s) => `${s.type}: ${s.url}`)
+      .join(" | ");
+    return [
+      sub.submission_code,
+      sub.sales_name,
+      sub.pic_name,
+      sub.campaign_name,
+      sub.customer_name,
+      sub.customer_phone,
+      sub.status,
+      parseFraudFlags(sub.fraud_flags).map((f) => `${f.flag}: ${f.reason}`).join(" | "),
+      screenshotLinks,
+      sub.created_at,
+    ];
+  });
 
   const csvContent = [headers, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
