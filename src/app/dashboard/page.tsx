@@ -78,12 +78,13 @@ const parseFraudFlags = (flagsJson: string | FraudFlag[]): FraudFlag[] => {
 };
 
 const exportToCSV = (submissions: Submission[]) => {
-  const headers = ["Kode", "Sales", "PIC", "Campaign", "Customer", "Phone", "Status", "Fraud Reasons", "Screenshots", "Created"];
+  const headers = ["Kode", "Sales", "PIC", "Campaign", "Customer", "Phone", "Status", "Fraud Reasons", "Screenshot 1", "Screenshot 2", "Created"];
   const rows = submissions.map((sub) => {
-    const screenshotLinks = (sub.screenshots || [])
+    const screenshots = (sub.screenshots || [])
       .filter((s) => s.url && !s.url.includes("pending"))
-      .map((s) => `${s.type}: ${s.url}`)
-      .join(" | ");
+      .slice(0, 2); // max 2 screenshots
+    const sc1 = screenshots[0]?.url || "";
+    const sc2 = screenshots[1]?.url || "";
     return [
       sub.submission_code,
       sub.sales_name,
@@ -93,7 +94,8 @@ const exportToCSV = (submissions: Submission[]) => {
       sub.customer_phone,
       sub.status,
       parseFraudFlags(sub.fraud_flags).map((f) => `${f.flag}: ${f.reason}`).join(" | "),
-      screenshotLinks,
+      sc1 ? `=HYPERLINK("${sc1}","Buka")` : "",
+      sc2 ? `=HYPERLINK("${sc2}","Buka")` : "",
       sub.created_at,
     ];
   });
